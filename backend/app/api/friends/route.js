@@ -10,7 +10,10 @@ export async function OPTIONS() {
 }
 
 // GET /api/friends
-// Shaped like the frontend's rawFriends() mock: id, first, last, bio, color.
+// Shaped like the frontend's rawFriends() mock: id, first, last, bio, color —
+// plus `attendingSoon`, true if that friend is hosting or has joined an
+// Event starting within the next hour (used to place them on the inner vs
+// outer ring in the <Friends /> orbit view).
 // (The old version pre-formatted "kat t." server-side — the v1 frontend
 // does that itself via fmtName(), so we hand back raw first/last instead.)
 export async function GET() {
@@ -18,9 +21,19 @@ export async function GET() {
     const user = await requireCurrentUser();
 
     const { rows } = await query(
-      `SELECT u.id, u."firstName", u."lastName", u.bio
+      `WITH soon_events AS (
+         SELECT "hostId" AS "userId" FROM "Event"
+          WHERE "startAt" BETWEEN NOW() AND NOW() + INTERVAL '1 hour'
+          UNION
+         SELECT ej."userId" FROM "EventJoin" ej
+           JOIN "Event" e ON e.id = ej."eventId"
+          WHERE e."startAt" BETWEEN NOW() AND NOW() + INTERVAL '1 hour'
+       )
+       SELECT u.id, u."firstName", u."lastName", u.bio,
+              (se."userId" IS NOT NULL) AS "attendingSoon"
          FROM "Friendship" f
          JOIN "User" u ON u.id = CASE WHEN f."userAId" = $1 THEN f."userBId" ELSE f."userAId" END
+         LEFT JOIN soon_events se ON se."userId" = u.id
         WHERE f.status = 'accepted'
           AND $1 IN (f."userAId", f."userBId")
         ORDER BY u."firstName" ASC`,
@@ -32,7 +45,8 @@ export async function GET() {
       first: r.firstName,
       last: r.lastName,
       bio: r.bio || "no bio yet",
-      color: colorForId(r.id)
+      color: colorForId(r.id),
+      attendingSoon: r.attendingSoon
     }));
 
     return withCors(NextResponse.json(shaped));

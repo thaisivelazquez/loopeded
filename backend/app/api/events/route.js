@@ -1,3 +1,6 @@
+// ====================================================
+// SAVE TO: backend/app/api/events/route.js
+// ====================================================
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { query } from "../../../lib/db";
@@ -5,6 +8,7 @@ import { requireCurrentUser } from "../../../lib/auth";
 import { jsonError, withCors, corsPreflight } from "../../../lib/format";
 import { toBoardFields, fromBoardFields, postedAgo } from "../../../lib/time";
 import { dayLabelFor } from "../../../lib/dayLabel";
+import { notifyUser } from "../../../lib/notify";
 
 export async function OPTIONS() {
   return corsPreflight();
@@ -127,11 +131,12 @@ export async function POST(request) {
       [user.id]
     );
     for (const f of friendRows) {
-      await query(
-        `INSERT INTO "Ping" (id, "recipientId", "eventId", text, cta, read)
-         VALUES ($1, $2, $3, $4, $5, false)`,
-        [randomUUID(), f.id, id, `${user.firstName.toLowerCase()} posted ${what} ${emoji}`, "i'm in"]
-      );
+      await notifyUser({
+        recipientId: f.id,
+        eventId: id,
+        text: `${user.firstName.toLowerCase()} posted ${what} ${emoji}`,
+        cta: "i'm in"
+      });
     }
 
     const e = rows[0];

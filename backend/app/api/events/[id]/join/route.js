@@ -1,8 +1,12 @@
+// ====================================================
+// SAVE TO: backend/app/api/events/[id]/join/route.js
+// ====================================================
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { query } from "../../../../../lib/db";
 import { requireCurrentUser } from "../../../../../lib/auth";
 import { jsonError, withCors, corsPreflight } from "../../../../../lib/format";
+import { notifyUser } from "../../../../../lib/notify";
 
 export async function OPTIONS() {
   return corsPreflight();
@@ -27,11 +31,11 @@ export async function POST(request, { params }) {
 
     const full = event.spots > 0 && event.joinCount >= event.spots;
     if (full) {
-      await query(
-        `INSERT INTO "Ping" (id, "recipientId", "eventId", text, cta, read)
-         VALUES ($1, $2, $3, $4, NULL, false)`,
-        [randomUUID(), event.hostId, id, `${user.firstName.toLowerCase()} asked to join ${event.title}`]
-      );
+      await notifyUser({
+        recipientId: event.hostId,
+        eventId: id,
+        text: `${user.firstName.toLowerCase()} asked to join ${event.title}`
+      });
       return withCors(NextResponse.json({ joined: false, asked: true }));
     }
 
@@ -42,11 +46,11 @@ export async function POST(request, { params }) {
     );
 
     if (event.hostId !== user.id) {
-      await query(
-        `INSERT INTO "Ping" (id, "recipientId", "eventId", text, cta, read)
-         VALUES ($1, $2, $3, $4, NULL, false)`,
-        [randomUUID(), event.hostId, id, `${user.firstName.toLowerCase()} is going to ${event.title}`]
-      );
+      await notifyUser({
+        recipientId: event.hostId,
+        eventId: id,
+        text: `${user.firstName.toLowerCase()} is going to ${event.title}`
+      });
     }
 
     return withCors(NextResponse.json({ joined: true }));

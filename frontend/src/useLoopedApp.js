@@ -24,6 +24,7 @@ function initialState() {
     toast: '',
     friendQuery: '', contactQuery: '', contactsLinked: false,
     skyOverride: 'auto',
+    previewHour: null,
     detailId: null,
     nowTick: Date.now()
   };
@@ -166,6 +167,14 @@ export function useLoopedApp() {
     : mode === 'sunset' ? 'golden hour, ' + gname + ' 🌅'
     : 'night owl hours, ' + gname + ' 🌙';
 
+  // The board's time slider previews other hours without touching real
+  // event status (now/wrapped stays truthful) — it just dims cards outside
+  // the selected window. Defaults to following the live clock until the
+  // user drags it; SLIDER_MIN/MAX match the board's 8am–1am display range.
+  const SLIDER_MIN = 8, SLIDER_MAX = 25;
+  const previewActive = S.previewHour !== null;
+  const previewValue = previewActive ? S.previewHour : now;
+
   const acts = allToday().map(a => {
     const st = status(a);
     const youIn = !!a.youIn;
@@ -184,6 +193,8 @@ export function useLoopedApp() {
     const statusLine = wrapped ? fmtTime(a.hour) + ' · wrapped'
       : st === 'now' ? 'happening now'
       : fmtTime(a.hour) + (a.hour >= 20 ? ' · tonight' : '');
+    const baseOpacity = wrapped ? .55 : 1;
+    const dimmedByPreview = previewActive && Math.abs(a.hour - previewValue) > 2.5;
     return {
       id: a.id, hour: a.hour,
       title: a.what + ' ' + a.emoji,
@@ -191,8 +202,9 @@ export function useLoopedApp() {
       note: a.note || '',
       hasNote: !!a.note && !wrapped,
       isYours: !!a.isYours,
-      opacity: wrapped ? .55 : 1,
-      pulsing: st === 'now',
+      wrapped,
+      opacity: dimmedByPreview ? baseOpacity * 0.32 : baseOpacity,
+      pulsing: st === 'now' && !dimmedByPreview,
       statusLine,
       statusColor: st === 'now' ? '#e0562a' : 'rgba(58,44,40,.5)',
       statusBold: st === 'now',
@@ -219,17 +231,27 @@ export function useLoopedApp() {
     return { items, empty: items.length === 0 };
   });
 
-  const segs = [['8 am', 8, 12], ['noon', 12, 17], ['5 pm', 17, 21], ['9 pm', 21, 25]];
-  const axis = segs.map(([label, lo, hi]) => {
-    const active = now >= lo && now < hi;
+  const tickMarks = [[SLIDER_MIN, '8 am'], [12, 'noon'], [17, '5 pm'], [21, '9 pm']];
+  const ticks = tickMarks.map(([h, label], i) => {
+    const nextH = tickMarks[i + 1] ? tickMarks[i + 1][0] : SLIDER_MAX;
+    const active = previewValue >= h && previewValue < nextH;
     return {
       label: active ? label + ' ●' : label,
-      borderTop: active ? '2px solid rgba(58,44,40,.55)' : '2px dotted rgba(58,44,40,.3)',
+      leftPct: ((h - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100,
+      align: i === 0 ? 'left' : i === tickMarks.length - 1 ? 'right' : 'center',
       color: active ? '#3a2c28' : 'rgba(58,44,40,.5)'
     };
   });
+  const slider = {
+    min: SLIDER_MIN, max: SLIDER_MAX, step: 0.5,
+    value: previewValue,
+    active: previewActive,
+    label: fmtTime(previewValue),
+    onChange: (e) => setState({ previewHour: parseFloat(e.target.value) }),
+    reset: () => setState({ previewHour: null })
+  };
 
-  const liveActs = acts.filter(a => a.opacity === 1 && !a.isYours);
+  const liveActs = acts.filter(a => !a.wrapped && !a.isYours);
   const subline = liveActs.length
     ? liveActs.length + (liveActs.length === 1 ? ' friend is' : ' friends are') + ' out doing things — tap in whenever'
     : 'nothing on the board yet — start something';
@@ -555,7 +577,7 @@ export function useLoopedApp() {
     },
 
     today: {
-      greeting, subline, axis, buckets, weekItems,
+      greeting, subline, ticks, slider, buckets, weekItems,
       openComposer: () => setState({ composerOpen: true })
     },
 
@@ -579,7 +601,8 @@ export function useLoopedApp() {
       setContactQuery: (e) => setState({ contactQuery: e.target.value }),
       searchContacts: () => doSearch(),
       searchKeyDown: (e) => { if (e.key === 'Enter') doSearch(); },
-      cards: friendCards
+      cards: friendCards,
+      you: { initial: (name[0] || 'y').toUpperCase(), color: '#ffb37e', avatarUrl: null }
     },
 
     profile: {

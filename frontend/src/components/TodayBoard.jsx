@@ -4,13 +4,35 @@ export default function TodayBoard({ today, accent }) {
       <div style={{ font: '800 32px/1.2 Nunito,sans-serif', letterSpacing: '-.01em' }}>{today.greeting}</div>
       <div style={{ font: '15px Karla,sans-serif', color: 'rgba(58,44,40,.6)', marginTop: 6 }}>{today.subline}</div>
 
-      {/* timeline axis */}
-      <div style={{ marginTop: 26, display: 'flex', font: '600 11px Karla,sans-serif', letterSpacing: '.06em', color: 'rgba(58,44,40,.5)' }}>
-        {today.axis.map((seg, i) => (
-          <div key={i} style={{ flex: 1, borderTop: seg.borderTop, position: 'relative', paddingTop: 7 }}>
-            <span style={{ color: seg.color }}>{seg.label}</span>
+      {/* time slider — preview any hour without changing real event status */}
+      <div style={{ marginTop: 26 }}>
+        <div style={{ position: 'relative', height: 16 }}>
+          {today.ticks.map((t, i) => (
+            <span
+              key={i}
+              style={{
+                position: 'absolute', left: `${t.leftPct}%`,
+                transform: t.align === 'left' ? 'none' : t.align === 'right' ? 'translateX(-100%)' : 'translateX(-50%)',
+                font: '600 11px Karla,sans-serif', letterSpacing: '.06em', color: t.color, whiteSpace: 'nowrap'
+              }}
+            >{t.label}</span>
+          ))}
+        </div>
+        <input
+          type="range" className="looped-slider"
+          min={today.slider.min} max={today.slider.max} step={today.slider.step}
+          value={today.slider.value} onChange={today.slider.onChange}
+          style={{ width: '100%', marginTop: 8, display: 'block' }}
+        />
+        {today.slider.active && (
+          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ font: '700 12px Karla,sans-serif', color: '#3a2c28' }}>previewing {today.slider.label}</div>
+            <button
+              onClick={today.slider.reset}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', font: '700 12px Karla,sans-serif', color: accent, textDecoration: 'underline', padding: 0 }}
+            >back to now</button>
           </div>
-        ))}
+        )}
       </div>
 
       {/* board */}
