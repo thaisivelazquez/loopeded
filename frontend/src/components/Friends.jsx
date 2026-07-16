@@ -21,7 +21,7 @@ function FriendsRing({ you, friends, accent }) {
     border: ring ? '2.5px solid #ffd27a' : 'none',
   });
 
-  if (!friends.length) return null;
+ 
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 22, justifyContent: 'center', flexWrap: 'wrap' }}>
