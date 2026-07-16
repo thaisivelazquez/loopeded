@@ -1,6 +1,6 @@
 export default function TodayBoard({ today, accent }) {
   return (
-    <div style={{ padding: '18px 44px 60px', maxWidth: 1180, margin: '0 auto' }}>
+    <div className="looped-page" style={{ maxWidth: 1180 }}>
       <div style={{ font: '800 32px/1.2 Nunito,sans-serif', letterSpacing: '-.01em' }}>{today.greeting}</div>
       <div style={{ font: '15px Karla,sans-serif', color: 'rgba(58,44,40,.6)', marginTop: 6 }}>{today.subline}</div>
 
@@ -36,7 +36,7 @@ export default function TodayBoard({ today, accent }) {
       </div>
 
       {/* board */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 14, marginTop: 20, alignItems: 'start' }}>
+      <div className="looped-today-grid" style={{ marginTop: 20, alignItems: 'start' }}>
         {today.buckets.map((col, ci) => (
           <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: 12, minHeight: 120 }}>
             {col.items.map(item => (

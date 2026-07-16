@@ -1,6 +1,6 @@
 export default function Profile({ profile }) {
   return (
-    <div style={{ padding: '18px 44px 60px', maxWidth: 640, margin: '0 auto' }}>
+    <div className="looped-page" style={{ maxWidth: 640 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
         <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#ffb37e', display: 'grid', placeItems: 'center', font: '800 28px Nunito,sans-serif', color: '#fff' }}>{profile.yourInitial}</div>
         <div>

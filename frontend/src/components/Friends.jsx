@@ -21,11 +21,10 @@ function FriendsRing({ you, friends, accent }) {
     border: ring ? '2.5px solid #ffd27a' : 'none',
   });
 
- 
-
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 22, justifyContent: 'center', flexWrap: 'wrap' }}>
-      <div style={{ position: 'relative', width: size, height: size, margin: '28px 0 6px' }}>
+      <div className="looped-ring-outer">
+      <div className="looped-ring-inner">
         {/* guide rings */}
         <div style={{ position: 'absolute', top: center - 66, left: center - 66, width: 132, height: 132, borderRadius: '50%', border: '1px dashed rgba(58,44,40,.2)' }} />
         <div style={{ position: 'absolute', top: center - 126, left: center - 126, width: 252, height: 252, borderRadius: '50%', border: '1px dashed rgba(58,44,40,.15)' }} />
@@ -68,6 +67,7 @@ function FriendsRing({ you, friends, accent }) {
           </div>
         ))}
       </div>
+      </div>
 
       {/* legend explaining inner vs outer ring */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 180 }}>
@@ -92,7 +92,7 @@ function FriendsRing({ you, friends, accent }) {
 
 export default function Friends({ friends, accent }) {
   return (
-    <div style={{ padding: '18px 44px 60px', maxWidth: 880, margin: '0 auto' }}>
+    <div className="looped-page" style={{ maxWidth: 880 }}>
       <div style={{ font: '800 32px Nunito,sans-serif' }}>your people</div>
       <div style={{ font: '14px Karla,sans-serif', color: 'rgba(58,44,40,.6)', marginTop: 5 }}>{friends.countLine}</div>
       <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -123,7 +123,7 @@ export default function Friends({ friends, accent }) {
 
       <FriendsRing you={friends.you} friends={friends.cards} accent={accent} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 13, marginTop: 22 }}>
+      <div className="looped-friends-grid" style={{ marginTop: 22 }}>
         {friends.cards.map(fr => (
           <div key={fr.id} style={{ background: 'rgba(255,255,255,.5)', border: '1px solid rgba(255,255,255,.75)', backdropFilter: 'blur(12px)', borderRadius: 16, padding: '17px 17px 15px', display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: fr.color, display: 'grid', placeItems: 'center', font: '800 17px Nunito,sans-serif', color: '#fff', marginBottom: 7 }}>{fr.initial}</div>

@@ -3,17 +3,16 @@ export default function EventDetail({ detail }) {
   return (
     <div
       onClick={detail.close}
-      style={{
-        position: 'fixed', inset: 0, background: 'rgba(58,44,40,.28)', backdropFilter: 'blur(3px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40, zIndex: 50
-      }}
+      className="looped-modal-overlay"
+      style={{ background: 'rgba(58,44,40,.28)', backdropFilter: 'blur(3px)', zIndex: 50 }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="looped-modal"
         style={{
-          width: 480, maxWidth: '100%', maxHeight: '86vh', overflowY: 'auto', boxSizing: 'border-box',
+          maxHeight: '86vh', overflowY: 'auto',
           background: 'rgba(255,251,246,.94)', border: '1px solid rgba(255,255,255,.9)', backdropFilter: 'blur(20px)',
-          borderRadius: 22, padding: '30px 34px', animation: 'loopPop .35s ease'
+          borderRadius: 22, animation: 'loopPop .35s ease'
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '-8px -10px 4px 0' }}>

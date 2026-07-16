@@ -1,6 +1,6 @@
 export default function Pings({ pings, accent }) {
   return (
-    <div style={{ padding: '18px 44px 60px', maxWidth: 640, margin: '0 auto' }}>
+    <div className="looped-page" style={{ maxWidth: 640 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
         <div style={{ font: '800 32px Nunito,sans-serif' }}>pings</div>
         <button onClick={pings.markAllRead} style={{ marginLeft: 'auto', cursor: 'pointer', border: 'none', background: 'none', font: '700 13px Karla,sans-serif', color: 'rgba(58,44,40,.55)', textDecoration: 'underline' }}>mark all read</button>

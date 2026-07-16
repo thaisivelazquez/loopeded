@@ -1,9 +1,9 @@
 export default function Onboarding({ ob, accent }) {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
-      <div style={{
-        width: 520, background: 'rgba(255,255,255,.5)', border: '1px solid rgba(255,255,255,.75)',
-        backdropFilter: 'blur(16px)', borderRadius: 24, padding: '44px 48px', animation: 'loopPop .45s ease'
+    <div className="looped-onboarding-overlay">
+      <div className="looped-onboarding-card" style={{
+        background: 'rgba(255,255,255,.5)', border: '1px solid rgba(255,255,255,.75)',
+        backdropFilter: 'blur(16px)', borderRadius: 24, animation: 'loopPop .45s ease'
       }}>
 
         {ob.step1 && (
