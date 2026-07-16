@@ -18,8 +18,8 @@ const textInputStyle = {
 export default function Composer({ composer, accent }) {
   if (!composer.open) return null;
   return (
-    <div onClick={composer.close} style={{ position: 'fixed', inset: 0, background: 'rgba(58,44,40,.25)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 55 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: 480, background: 'rgba(255,251,246,.92)', border: '1px solid rgba(255,255,255,.9)', backdropFilter: 'blur(20px)', borderRadius: 22, padding: '30px 32px', animation: 'loopPop .35s ease' }}>
+    <div onClick={composer.close} className="looped-modal-overlay" style={{ background: 'rgba(58,44,40,.25)', backdropFilter: 'blur(3px)', zIndex: 55 }}>
+      <div onClick={(e) => e.stopPropagation()} className="looped-modal" style={{ background: 'rgba(255,251,246,.92)', border: '1px solid rgba(255,255,255,.9)', backdropFilter: 'blur(20px)', borderRadius: 22, animation: 'loopPop .35s ease' }}>
         <div style={{ font: '800 21px Nunito,sans-serif' }}>what are you up to?</div>
         <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'nowrap' }}>
           {composer.emojiChips.map((em, i) => (
