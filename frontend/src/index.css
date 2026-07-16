@@ -1,0 +1,41 @@
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+body {
+  font-family: Karla, sans-serif;
+}
+
+@keyframes loopPop {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes loopToast {
+  from { opacity: 0; transform: translate(-50%, 14px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes loopPulse {
+  0%, 100% { box-shadow: 0 4px 16px rgba(255,138,92,.22); }
+  50% { box-shadow: 0 4px 24px rgba(255,138,92,.45); }
+}
+
+input, select, button {
+  font-family: inherit;
+}
+
+input:focus, select:focus {
+  outline: 2px solid rgba(58,44,40,.35);
+  outline-offset: 1px;
+}
+
+::placeholder {
+  color: rgba(58,44,40,.4);
+}
+
+.looped-card:hover, .looped-hover:hover {
+  border-color: rgba(58,44,40,.3) !important;
+}
