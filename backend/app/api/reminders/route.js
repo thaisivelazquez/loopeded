@@ -2,9 +2,8 @@
 // SAVE TO: backend/app/api/cron/reminders/route.js
 // ====================================================
 import { NextResponse } from "next/server";
-import { query } from "../../../../lib/db";
-import { notifyUsers } from "../../../../lib/notify";
-
+import db from '../../../lib/db'
+import notify from '../../../lib/notify'
 // GET /api/cron/reminders?token=CRON_SECRET
 // Meant to be hit by an external scheduler (cron-job.org, Vercel Cron, a
 // system crontab curling this URL, etc.) every ~10 minutes. Not tied to any
