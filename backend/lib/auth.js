@@ -32,3 +32,4 @@ export async function requireCurrentUser() {
   }
   return rows[0];
 }
+

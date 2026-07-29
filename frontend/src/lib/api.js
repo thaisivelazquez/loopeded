@@ -1,3 +1,6 @@
+// ====================================================
+// SAVE TO: frontend/src/lib/api.js
+// ====================================================
 // Talks to the looped backend (see /backend in this project). The backend
 // is a separate origin, so every call sends credentials so the httpOnly
 // "userId" cookie set at signup goes along with it.
@@ -41,14 +44,18 @@ export const api = {
   discoverUsers: () => request('/api/users/discover'),
   addFriend: (id) => request(`/api/friends/${id}`, { method: 'POST' }),
   removeFriend: (id) => request(`/api/friends/${id}`, { method: 'DELETE' }),
+  setFriendCircle: (id, circle) =>
+    request(`/api/friends/${id}`, { method: 'PATCH', body: JSON.stringify({ circle }) }),
 
   events: () => request('/api/events'),
   createEvent: (payload) => request('/api/events', { method: 'POST', body: JSON.stringify(payload) }),
+  updateEvent: (id, payload) => request(`/api/events/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   cancelEvent: (id) => request(`/api/events/${id}`, { method: 'DELETE' }),
   joinEvent: (id) => request(`/api/events/${id}/join`, { method: 'POST' }),
   leaveEvent: (id) => request(`/api/events/${id}/join`, { method: 'DELETE' }),
 
   pings: () => request('/api/pings'),
   markPingsRead: () => request('/api/pings/read', { method: 'POST' }),
-  pingAction: (id) => request(`/api/pings/${id}/action`, { method: 'POST' })
+  pingAction: (id) => request(`/api/pings/${id}/action`, { method: 'POST' }),
+  deletePing: (id) => request(`/api/pings/${id}`, { method: 'DELETE' })
 };

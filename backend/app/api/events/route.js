@@ -17,7 +17,15 @@ export async function OPTIONS() {
 // GET /api/events
 // Returns activities shaped for the v1 board (TodayBoard + the "later this
 // week" list): id, who, emoji, what, place, note, hour, dur, joined, spots,
-// dist, postedAgo, day, dayOffset, isYours, youIn.
+// dist, postedAgo, day, dayOffset, isYours, youIn, visibility.
+//
+// Visibility rules (host picks this when posting, via <Composer />):
+//   'everyone' — anyone can see it (unchanged default behavior)
+//   'outer'    — visible to any accepted friend of the host
+//   'inner'    — visible only to friends the HOST has placed in their inner
+//                circle ("circleA"/"circleB" on the Friendship row, read
+//                from the host's side, not the viewer's)
+// The host and event owner can always see their own posts.
 //
 // Window: everything from 24h ago (so "wrapped" items still render today)
 // through 5 days out (matches the composer's day picker, which only offers
@@ -36,13 +44,27 @@ export async function GET() {
           AND (
             e.visibility = 'everyone'
             OR e."hostId" = $1
-            OR EXISTS (
-              SELECT 1 FROM "Friendship" f
-               WHERE f.status = 'accepted'
-                 AND (
-                   (f."userAId" = $1 AND f."userBId" = e."hostId") OR
-                   (f."userBId" = $1 AND f."userAId" = e."hostId")
-                 )
+            OR (
+              e.visibility = 'outer'
+              AND EXISTS (
+                SELECT 1 FROM "Friendship" f
+                 WHERE f.status = 'accepted'
+                   AND (
+                     (f."userAId" = $1 AND f."userBId" = e."hostId") OR
+                     (f."userBId" = $1 AND f."userAId" = e."hostId")
+                   )
+              )
+            )
+            OR (
+              e.visibility = 'inner'
+              AND EXISTS (
+                SELECT 1 FROM "Friendship" f
+                 WHERE f.status = 'accepted'
+                   AND (
+                     (f."userAId" = e."hostId" AND f."userBId" = $1 AND f."circleA" = 'inner') OR
+                     (f."userBId" = e."hostId" AND f."userAId" = $1 AND f."circleB" = 'inner')
+                   )
+              )
             )
           )
         ORDER BY e."startAt" ASC`,
@@ -81,6 +103,7 @@ export async function GET() {
         dayOffset,
         day: dayOffset > 0 ? dayLabelFor(dayOffset) : undefined,
         spots: e.spots,
+        visibility: e.visibility,
         // joined excludes the viewer — the frontend tracks the viewer's own
         // join state separately (see youIn) and adds it back in when it
         // needs a total headcount.
@@ -97,7 +120,9 @@ export async function GET() {
   }
 }
 
-// POST /api/events   body from <Composer />: { emoji, what, place, note, dayOffset, hour, spots }
+const VALID_VISIBILITY = new Set(["everyone", "inner", "outer"]);
+
+// POST /api/events   body from <Composer />: { emoji, what, place, note, dayOffset, hour, spots, visibility }
 export async function POST(request) {
   try {
     const user = await requireCurrentUser();
@@ -112,6 +137,7 @@ export async function POST(request) {
     const place = (body.place ?? "").trim() || "somewhere good";
     const note = (body.note ?? "").trim() || null;
     const spots = Math.max(0, parseInt(body.spots, 10) || 0);
+    const visibility = VALID_VISIBILITY.has(body.visibility) ? body.visibility : "everyone";
     const dur = 1.5;
     const startAt = fromBoardFields(body.dayOffset, body.hour);
 
@@ -119,18 +145,23 @@ export async function POST(request) {
     const { rows } = await query(
       `INSERT INTO "Event"
          (id, "hostId", emoji, title, location, note, "timeLabel", "startAt", visibility, status, spots, "durationHours")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'everyone', 'now', $9, $10)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'now', $10, $11)
        RETURNING *`,
-      [id, user.id, emoji, what, place, note, what, startAt, spots, dur]
+      [id, user.id, emoji, what, place, note, what, startAt, visibility, spots, dur]
     );
 
-    // Notify friends there's something new on the board.
+    // Notify friends there's something new on the board — only the ones who
+    // would actually be able to see it, based on the chosen visibility.
     const { rows: friendRows } = await query(
-      `SELECT CASE WHEN "userAId" = $1 THEN "userBId" ELSE "userAId" END AS id
+      `SELECT
+         CASE WHEN "userAId" = $1 THEN "userBId" ELSE "userAId" END AS id,
+         CASE WHEN "userAId" = $1 THEN "circleA" ELSE "circleB" END AS circle
          FROM "Friendship" WHERE status = 'accepted' AND $1 IN ("userAId", "userBId")`,
       [user.id]
     );
-    for (const f of friendRows) {
+    const toNotify =
+      visibility === "inner" ? friendRows.filter((f) => f.circle === "inner") : friendRows;
+    for (const f of toNotify) {
       await notifyUser({
         recipientId: f.id,
         eventId: id,
@@ -156,6 +187,7 @@ export async function POST(request) {
           dayOffset,
           day: dayOffset > 0 ? dayLabelFor(dayOffset) : undefined,
           spots: e.spots,
+          visibility: e.visibility,
           joined: [],
           youIn: true,
           postedAgo: "posted just now"

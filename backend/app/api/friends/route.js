@@ -1,3 +1,6 @@
+// ====================================================
+// SAVE TO: backend/app/api/friends/route.js
+// ====================================================
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { query } from "../../../lib/db";
@@ -11,11 +14,12 @@ export async function OPTIONS() {
 
 // GET /api/friends
 // Shaped like the frontend's rawFriends() mock: id, first, last, bio, color —
-// plus `attendingSoon`, true if that friend is hosting or has joined an
-// Event starting within the next hour (used to place them on the inner vs
-// outer ring in the <Friends /> orbit view).
-// (The old version pre-formatted "kat t." server-side — the v1 frontend
-// does that itself via fmtName(), so we hand back raw first/last instead.)
+// plus `attendingSoon` (hosting/joined something in the next hour — used for
+// the "happening soon" note) and `circle` ('inner' | 'outer'), which is now
+// the thing that actually places a friend on the inner vs outer ring in
+// <Friends />. `circle` reflects how *you* (the viewer) have classified that
+// friend — it's per-direction, not mutual, so it's read from "circleA" or
+// "circleB" depending on which side of the Friendship row you're on.
 export async function GET() {
   try {
     const user = await requireCurrentUser();
@@ -30,7 +34,8 @@ export async function GET() {
           WHERE e."startAt" BETWEEN NOW() AND NOW() + INTERVAL '1 hour'
        )
        SELECT u.id, u."firstName", u."lastName", u.bio,
-              (se."userId" IS NOT NULL) AS "attendingSoon"
+              (se."userId" IS NOT NULL) AS "attendingSoon",
+              CASE WHEN f."userAId" = $1 THEN f."circleA" ELSE f."circleB" END AS circle
          FROM "Friendship" f
          JOIN "User" u ON u.id = CASE WHEN f."userAId" = $1 THEN f."userBId" ELSE f."userAId" END
          LEFT JOIN soon_events se ON se."userId" = u.id
@@ -46,7 +51,8 @@ export async function GET() {
       last: r.lastName,
       bio: r.bio || "no bio yet",
       color: colorForId(r.id),
-      attendingSoon: r.attendingSoon
+      attendingSoon: r.attendingSoon,
+      circle: r.circle === "inner" ? "inner" : "outer"
     }));
 
     return withCors(NextResponse.json(shaped));

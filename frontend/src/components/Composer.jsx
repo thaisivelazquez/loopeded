@@ -1,3 +1,6 @@
+// ====================================================
+// SAVE TO: frontend/src/components/Composer.jsx
+// ====================================================
 const ARROW_BG = "url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22 viewBox=%220 0 10 6%22><path d=%22M1 1l4 4 4-4%22 stroke=%22%233a2c28%22 stroke-width=%221.5%22 fill=%22none%22 stroke-linecap=%22round%22/></svg>')";
 
 const selectStyle = {
@@ -20,7 +23,7 @@ export default function Composer({ composer, accent }) {
   return (
     <div onClick={composer.close} className="looped-modal-overlay" style={{ background: 'rgba(58,44,40,.25)', backdropFilter: 'blur(3px)', zIndex: 55 }}>
       <div onClick={(e) => e.stopPropagation()} className="looped-modal" style={{ background: 'rgba(255,251,246,.92)', border: '1px solid rgba(255,255,255,.9)', backdropFilter: 'blur(20px)', borderRadius: 22, animation: 'loopPop .35s ease' }}>
-        <div style={{ font: '800 21px Nunito,sans-serif' }}>what are you up to?</div>
+        <div style={{ font: '800 21px Nunito,sans-serif' }}>{composer.editing ? 'edit your plans' : 'what are you up to?'}</div>
         <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'nowrap' }}>
           {composer.emojiChips.map((em, i) => (
             <button key={i} onClick={em.pick} style={{ flex: 1, minWidth: 0, cursor: 'pointer', border: '1.5px solid ' + em.border, background: em.bg, fontSize: 16, padding: '7px 0', borderRadius: 10 }}>{em.char}</button>
@@ -41,9 +44,15 @@ export default function Composer({ composer, accent }) {
               {composer.spotsOptions.map(sp => <option key={sp.value} value={sp.value}>{sp.label}</option>)}
             </select>
           </div>
+          <div>
+            <div style={{ font: '700 11px Karla,sans-serif', letterSpacing: '.05em', color: 'rgba(58,44,40,.5)', margin: '2px 0 6px' }}>WHO CAN SEE THIS</div>
+            <select value={composer.cVisibility} onChange={composer.setCVisibility} style={{ ...selectStyle, width: '100%' }}>
+              {composer.visibilityOptions.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+            </select>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-          <button onClick={composer.postActivity} style={{ cursor: 'pointer', border: 'none', background: accent, color: '#fff', font: '800 14px Nunito,sans-serif', padding: '13px 22px', borderRadius: 999, boxShadow: '0 3px 12px rgba(255,138,92,.4)' }}>post it</button>
+          <button onClick={composer.postActivity} style={{ cursor: 'pointer', border: 'none', background: accent, color: '#fff', font: '800 14px Nunito,sans-serif', padding: '13px 22px', borderRadius: 999, boxShadow: '0 3px 12px rgba(255,138,92,.4)' }}>{composer.editing ? 'save changes' : 'post it'}</button>
           <button onClick={composer.close} style={{ cursor: 'pointer', border: 'none', background: 'rgba(58,44,40,.08)', color: '#3a2c28', font: '800 14px Nunito,sans-serif', padding: '13px 20px', borderRadius: 999 }}>never mind</button>
         </div>
       </div>

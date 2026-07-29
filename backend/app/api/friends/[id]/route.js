@@ -1,3 +1,6 @@
+// ====================================================
+// SAVE TO: backend/app/api/friends/[id]/route.js
+// ====================================================
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { query } from "../../../../lib/db";
@@ -30,6 +33,38 @@ export async function POST(request, { params }) {
     );
 
     return withCors(NextResponse.json({ added: true }));
+  } catch (err) {
+    return jsonError(err);
+  }
+}
+
+// PATCH /api/friends/:id   body: { circle: 'inner' | 'outer' }
+// Lets you move a friend between your inner and outer circle. This is
+// per-direction — it only updates *your* side of the Friendship row
+// ("circleA" if you're userA, "circleB" if you're userB), so your friend's
+// own view of the circle they've put you in is untouched.
+export async function PATCH(request, { params }) {
+  try {
+    const user = await requireCurrentUser();
+    const { id } = params;
+    const body = await request.json();
+    const circle = body.circle === "inner" ? "inner" : "outer";
+
+    const [userAId, userBId] = [user.id, id].sort();
+    const column = user.id === userAId ? '"circleA"' : '"circleB"';
+
+    const { rows } = await query(
+      `UPDATE "Friendship" SET ${column} = $1
+        WHERE "userAId" = $2 AND "userBId" = $3 AND status = 'accepted'
+        RETURNING id`,
+      [circle, userAId, userBId]
+    );
+
+    if (!rows[0]) {
+      return withCors(NextResponse.json({ error: "not friends with that user" }, { status: 404 }));
+    }
+
+    return withCors(NextResponse.json({ id, circle }));
   } catch (err) {
     return jsonError(err);
   }

@@ -1,3 +1,6 @@
+// ====================================================
+// SAVE TO: frontend/src/useLoopedApp.js
+// ====================================================
 import { useEffect, useRef, useState } from 'react';
 import { fmtName } from './lib/data.js';
 import { nowHour, modeForHour, gradientForMode, fmtTime, dayLabel, clockLine as clockLineFor } from './lib/time.js';
@@ -6,6 +9,11 @@ import { COUNTRY_CODES } from './lib/countryCodes.js';
 
 const ACCENT = '#ff8a5c';
 const RESEND_COOLDOWN_SECONDS = 60;
+const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+
+function emptyComposerFields() {
+  return { cTitle: '', cPlace: '', cNote: '', cDate: '0', cTime: '', cSpots: '0', cEmoji: '', cVisibility: 'everyone', editingId: null };
+}
 
 function initialState() {
   return {
@@ -20,7 +28,7 @@ function initialState() {
     events: [],
     pingsRaw: [],
     composerOpen: false,
-    cTitle: '', cPlace: '', cNote: '', cDate: '0', cTime: '', cSpots: '0', cEmoji: '',
+    ...emptyComposerFields(),
     toast: '',
     friendQuery: '', contactQuery: '', contactsLinked: false,
     skyOverride: 'auto',
@@ -303,11 +311,34 @@ export function useLoopedApp() {
         if (p.actId) patchEvent(p.actId, { youIn: true });
         toast("going 🎉 it's on your board");
         try { await api.pingAction(p.id); } catch (e) { await loadBoard(); }
+      },
+      // ---------- delete a single notification ----------
+      del: async (e) => {
+        if (e) e.stopPropagation();
+        setState(prev => ({ pingsRaw: prev.pingsRaw.filter(x => x.id !== p.id) }));
+        try { await api.deletePing(p.id); } catch (e2) { await loadBoard(); toast("couldn't delete that one 🙏"); }
       }
     };
   });
 
-  const friendCards = friends().map(f => ({ ...f, initial: f.first[0].toUpperCase() }));
+  // ---------- friend cards, with the circle they're placed in ----------
+  const friendCards = friends().map(f => ({
+    ...f,
+    initial: f.first[0].toUpperCase(),
+    circle: f.circle === 'inner' ? 'inner' : 'outer',
+    toggleCircle: async () => {
+      const next = f.circle === 'inner' ? 'outer' : 'inner';
+      setState(prev => ({
+        friendsRaw: prev.friendsRaw.map(x => (x.id === f.id ? { ...x, circle: next } : x))
+      }));
+      toast(next === 'inner' ? f.name + ' moved to your inner circle 💛' : f.name + ' moved to your outer circle');
+      try { await api.setFriendCircle(f.id, next); }
+      catch (e) {
+        setState(prev => ({ friendsRaw: prev.friendsRaw.map(x => (x.id === f.id ? { ...x, circle: f.circle } : x)) }));
+        toast("couldn't update that — try again 🙏");
+      }
+    }
+  }));
 
   // ---------- onboarding ----------
   const obFriendsList = S.obSuggested.map(f => {
@@ -395,6 +426,11 @@ export function useLoopedApp() {
     border: S.cEmoji === e ? ACCENT : 'rgba(58,44,40,.15)',
     pick: () => setState({ cEmoji: S.cEmoji === e ? '' : e })
   }));
+  const visibilityOptions = [
+    { value: 'everyone', label: 'everyone on looped' },
+    { value: 'outer', label: 'my friends (outer + inner circle)' },
+    { value: 'inner', label: 'inner circle only 💛' }
+  ];
   const dateOptions = [0, 1, 2, 3, 4, 5].map(off => {
     const dd = new Date(); dd.setDate(dd.getDate() + off);
     const wd = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][dd.getDay()];
@@ -405,9 +441,13 @@ export function useLoopedApp() {
   const cDateOff = parseInt(S.cDate, 10) || 0;
   const timeOptions = [];
   {
-    let t = cDateOff === 0 ? Math.ceil(now * 2) / 2 + 0.5 : 8;
+    // Editing an existing "today" post can have a start time earlier than
+    // right now — don't clip the picker to future-only in that case, or
+    // saving an edit would silently bump the time forward.
+    const editingToday = !!S.editingId && cDateOff === 0;
+    let t = (cDateOff === 0 && !editingToday) ? Math.ceil(now * 2) / 2 + 0.5 : (cDateOff === 0 ? 0 : 8);
     const tEnd = cDateOff === 0 ? 24 : 23.5;
-    for (let i = 0; i < 40 && t <= tEnd; i++, t += 0.5) {
+    for (let i = 0; i < 48 && t <= tEnd; i++, t += 0.5) {
       timeOptions.push({ value: String(t), label: fmtTime(t) });
     }
     if (!timeOptions.length) timeOptions.push({ value: '20', label: fmtTime(20) });
@@ -426,17 +466,23 @@ export function useLoopedApp() {
       note: S.cNote.trim(),
       dayOffset,
       hour: parseFloat(validTime || '20'),
-      spots: parseInt(S.cSpots, 10) || 0
+      spots: parseInt(S.cSpots, 10) || 0,
+      visibility: S.cVisibility || 'everyone'
     };
-    setState({
-      composerOpen: false, cTitle: '', cPlace: '', cNote: '', cDate: '0', cTime: '', cEmoji: '', cSpots: '0', view: 'today'
-    });
+    const editingId = S.editingId;
+    setState({ composerOpen: false, ...emptyComposerFields(), view: 'today' });
     try {
-      const created = await api.createEvent(payload);
-      setState(prev => ({ events: prev.events.concat(created) }));
-      toast(dayOffset === 0 ? "it's on the board — friends can tap in 🎉" : 'posted for ' + dayLabel(dayOffset) + ' — it\'s in "later this week" 🎉');
+      if (editingId) {
+        const updated = await api.updateEvent(editingId, payload);
+        patchEvent(editingId, updated);
+        toast('updated — the new details are live ✏️');
+      } else {
+        const created = await api.createEvent(payload);
+        setState(prev => ({ events: prev.events.concat(created) }));
+        toast(dayOffset === 0 ? "it's on the board — friends can tap in 🎉" : 'posted for ' + dayLabel(dayOffset) + ' — it\'s in "later this week" 🎉');
+      }
     } catch (e) {
-      toast("couldn't post that — try again 🙏");
+      toast(editingId ? "couldn't save those changes — try again 🙏" : "couldn't post that — try again 🙏");
     }
   }
 
@@ -488,6 +534,16 @@ export function useLoopedApp() {
     if (youIn) goingNames.push('you');
     const timeRange = (a.day ? a.day + ' · ' : 'today, ') + fmtTime(a.hour) + ' – ' + fmtTime(a.hour + (a.dur || 1.5));
     const full = a.spots && spotsLeft <= 0 && !youIn;
+
+    // ---------- google maps embed for "getting there" ----------
+    // Uses the Maps Embed API (just an iframe, no JS SDK/billing surprises
+    // beyond the free embed tier). Set VITE_GOOGLE_MAPS_API_KEY in
+    // app/.env(.local) to turn this on; falls back to the old placeholder
+    // if it's not configured.
+    const mapEmbedUrl = GOOGLE_MAPS_KEY && a.place
+      ? `https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_KEY}&q=${encodeURIComponent(a.place)}`
+      : null;
+
     detail = {
       color: a.isYours ? '#ffb37e' : (fr ? fr.color : '#ccc'),
       initial: (whoName === 'you' ? name : whoName)[0].toUpperCase(),
@@ -499,6 +555,7 @@ export function useLoopedApp() {
       note: a.note || '',
       place: a.place,
       timeRange,
+      mapEmbedUrl,
       avatars: (goingNames.length ? goingNames : ['?']).slice(0, 4).map((n, i) => {
         const f = friends().find(x => x.name === n);
         return {
@@ -521,7 +578,23 @@ export function useLoopedApp() {
         if (youIn) toggleJoin(a);
         toast("let " + whoName + " know you can't make it 💛");
       },
-      cancel: () => { setState({ detailId: null }); cancelEvent(a); }
+      cancel: () => { setState({ detailId: null }); cancelEvent(a); },
+      // ---------- edit button ----------
+      edit: () => {
+        setState({
+          detailId: null,
+          composerOpen: true,
+          editingId: a.id,
+          cTitle: a.what,
+          cPlace: a.place,
+          cNote: a.note || '',
+          cDate: String(a.dayOffset || 0),
+          cTime: String(a.hour),
+          cSpots: String(a.spots || 0),
+          cEmoji: a.emoji,
+          cVisibility: a.visibility || 'everyone'
+        });
+      }
     };
   }
 
@@ -578,7 +651,7 @@ export function useLoopedApp() {
 
     today: {
       greeting, subline, ticks, slider, buckets, weekItems,
-      openComposer: () => setState({ composerOpen: true })
+      openComposer: () => setState({ composerOpen: true, ...emptyComposerFields() })
     },
 
     pings: {
@@ -639,14 +712,16 @@ export function useLoopedApp() {
 
     composer: {
       open: S.composerOpen,
-      close: () => setState({ composerOpen: false }),
+      editing: !!S.editingId,
+      close: () => setState({ composerOpen: false, ...emptyComposerFields() }),
       cTitle: S.cTitle, setCTitle: (e) => setState({ cTitle: e.target.value }),
       cPlace: S.cPlace, setCPlace: (e) => setState({ cPlace: e.target.value }),
       cNote: S.cNote, setCNote: (e) => setState({ cNote: e.target.value }),
       cDate: S.cDate, setCDate: (e) => setState({ cDate: e.target.value, cTime: '' }),
       cTime, setCTime: (e) => setState({ cTime: e.target.value }),
       cSpots: S.cSpots, setCSpots: (e) => setState({ cSpots: e.target.value }),
-      dateOptions, emojiChips, timeOptions, spotsOptions,
+      cVisibility: S.cVisibility, setCVisibility: (e) => setState({ cVisibility: e.target.value }),
+      dateOptions, emojiChips, timeOptions, spotsOptions, visibilityOptions,
       postActivity
     },
 

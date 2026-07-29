@@ -1,3 +1,6 @@
+// ====================================================
+// SAVE TO: frontend/src/components/EventDetail.jsx
+// ====================================================
 export default function EventDetail({ detail }) {
   if (!detail.open) return null;
   return (
@@ -15,7 +18,10 @@ export default function EventDetail({ detail }) {
           borderRadius: 22, animation: 'loopPop .35s ease'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '-8px -10px 4px 0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '-8px -6px 4px -2px' }}>
+          {detail.isYours ? (
+            <button onClick={detail.edit} style={{ cursor: 'pointer', border: 'none', background: 'rgba(58,44,40,.08)', color: '#3a2c28', font: '800 12px Karla,sans-serif', padding: '7px 12px', borderRadius: 999 }}>✏️ edit</button>
+          ) : <span />}
           <button onClick={detail.close} style={{ cursor: 'pointer', border: 'none', background: 'rgba(58,44,40,.08)', color: '#3a2c28', font: '800 13px Nunito,sans-serif', width: 28, height: 28, borderRadius: '50%' }}>✕</button>
         </div>
 
@@ -59,7 +65,17 @@ export default function EventDetail({ detail }) {
         <div style={{ borderTop: '1px solid rgba(58,44,40,.15)', margin: '16px 0 14px' }} />
 
         <div style={{ font: '700 11px Karla,sans-serif', letterSpacing: '.08em', color: 'rgba(58,44,40,.5)' }}>GETTING THERE</div>
-        <div style={{ marginTop: 9, height: 110, borderRadius: 14, background: 'rgba(58,44,40,.08)', display: 'grid', placeItems: 'center', font: '600 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.45)' }}>map preview 🗺️</div>
+        {detail.mapEmbedUrl ? (
+          <iframe
+            title="event location"
+            src={detail.mapEmbedUrl}
+            style={{ marginTop: 9, width: '100%', height: 150, border: 0, borderRadius: 14 }}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        ) : (
+          <div style={{ marginTop: 9, height: 110, borderRadius: 14, background: 'rgba(58,44,40,.08)', display: 'grid', placeItems: 'center', font: '600 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.45)' }}>map preview 🗺️</div>
+        )}
         <div style={{ textAlign: 'center', font: '600 12px Karla,sans-serif', color: 'rgba(58,44,40,.55)', marginTop: 7 }}>{detail.distance}</div>
 
         {detail.showJoin && (
