@@ -1,6 +1,9 @@
+// ====================================================
+// SAVE TO: frontend/src/components/Friends.jsx
+// ====================================================
 function FriendsRing({ you, friends, accent }) {
-  const inner = friends.filter(f => f.attendingSoon);
-  const outer = friends.filter(f => !f.attendingSoon);
+  const inner = friends.filter(f => f.circle === 'inner');
+  const outer = friends.filter(f => f.circle !== 'inner');
 
   const place = (list, radius) => list.map((fr, i) => {
     const angle = (i / list.length) * Math.PI * 2 - Math.PI / 2;
@@ -39,9 +42,9 @@ function FriendsRing({ you, friends, accent }) {
         </div>
         <div style={{ position: 'absolute', top: center + 34, left: center - 30, width: 60, textAlign: 'center', font: '700 11px Karla,sans-serif', color: 'rgba(58,44,40,.6)' }}>you</div>
 
-        {/* inner ring: attending something in the next hour */}
+        {/* inner ring: friends you've placed in your inner circle */}
         {innerPlaced.map(fr => (
-          <div key={fr.id} style={{ position: 'absolute', top: center + fr.y - 22, left: center + fr.x - 22, width: 44, textAlign: 'center' }}>
+          <div key={fr.id} onClick={fr.toggleCircle} style={{ position: 'absolute', top: center + fr.y - 22, left: center + fr.x - 22, width: 44, textAlign: 'center', cursor: 'pointer' }} title="tap to move to outer circle">
             <div style={avatarStyle(44, fr.color, true)}>
               {fr.avatarUrl
                 ? <img src={fr.avatarUrl} alt={fr.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
@@ -53,9 +56,9 @@ function FriendsRing({ you, friends, accent }) {
           </div>
         ))}
 
-        {/* outer ring: no plans in the next hour */}
+        {/* outer ring: everyone else */}
         {outerPlaced.map(fr => (
-          <div key={fr.id} style={{ position: 'absolute', top: center + fr.y - 20, left: center + fr.x - 20, width: 40, textAlign: 'center' }}>
+          <div key={fr.id} onClick={fr.toggleCircle} style={{ position: 'absolute', top: center + fr.y - 20, left: center + fr.x - 20, width: 40, textAlign: 'center', cursor: 'pointer' }} title="tap to move to inner circle">
             <div style={avatarStyle(40, fr.color, false)}>
               {fr.avatarUrl
                 ? <img src={fr.avatarUrl} alt={fr.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
@@ -69,22 +72,23 @@ function FriendsRing({ you, friends, accent }) {
       </div>
       </div>
 
-      {/* legend explaining inner vs outer ring */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 180 }}>
+      {/* legend explaining inner vs outer circle */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 190 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2.5px solid #ffd27a', background: 'rgba(255,255,255,.6)', flexShrink: 0, marginTop: 2 }} />
           <div>
-            <div style={{ font: '800 12.5px Nunito,sans-serif', color: '#3a2c28' }}>inner ring</div>
-            <div style={{ font: '11.5px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.6)', marginTop: 2 }}>out or about to be — something on their calendar in the next hour</div>
+            <div style={{ font: '800 12.5px Nunito,sans-serif', color: '#3a2c28' }}>inner circle</div>
+            <div style={{ font: '11.5px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.6)', marginTop: 2 }}>your closest people — tap anyone to move them between circles</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <div style={{ width: 14, height: 14, borderRadius: '50%', border: '1px dashed rgba(58,44,40,.35)', background: 'rgba(255,255,255,.6)', flexShrink: 0, marginTop: 2 }} />
           <div>
-            <div style={{ font: '800 12.5px Nunito,sans-serif', color: '#3a2c28' }}>outer ring</div>
-            <div style={{ font: '11.5px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.6)', marginTop: 2 }}>free right now — no plans in the next hour</div>
+            <div style={{ font: '800 12.5px Nunito,sans-serif', color: '#3a2c28' }}>outer circle</div>
+            <div style={{ font: '11.5px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.6)', marginTop: 2 }}>everyone else — still friends, just not as close</div>
           </div>
         </div>
+        <div style={{ font: '11px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.5)' }}>when you post, you can choose to share it with just your inner circle, your whole friend list, or everyone on looped</div>
       </div>
     </div>
   );
@@ -129,6 +133,17 @@ export default function Friends({ friends, accent }) {
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: fr.color, display: 'grid', placeItems: 'center', font: '800 17px Nunito,sans-serif', color: '#fff', marginBottom: 7 }}>{fr.initial}</div>
             <div style={{ font: '800 15.5px Nunito,sans-serif' }}>{fr.name}</div>
             <div style={{ font: '12.5px/1.45 Karla,sans-serif', color: 'rgba(58,44,40,.65)', marginTop: 4 }}>{fr.bio}</div>
+            <button
+              onClick={fr.toggleCircle}
+              style={{
+                cursor: 'pointer', alignSelf: 'flex-start', marginTop: 9,
+                border: fr.circle === 'inner' ? '1.5px solid #ffd27a' : '1px dashed rgba(58,44,40,.3)',
+                background: fr.circle === 'inner' ? 'rgba(255,210,122,.18)' : 'rgba(255,255,255,.5)',
+                color: '#3a2c28', font: '700 11.5px Karla,sans-serif', padding: '6px 12px', borderRadius: 999
+              }}
+            >
+              {fr.circle === 'inner' ? '💛 inner circle' : 'outer circle'}
+            </button>
           </div>
         ))}
       </div>
