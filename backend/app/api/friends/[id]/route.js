@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { HttpError } from "./auth";
+import { HttpError } from "../../../../lib/auth";
 
 // "kat" + "tran" -> "kat tran" (raw first/last; the frontend's own fmtName()
 // in app/src/lib/data.js turns this into "kat t." for display, so the API
