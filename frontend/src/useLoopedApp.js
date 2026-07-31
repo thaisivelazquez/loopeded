@@ -34,6 +34,7 @@ function initialState() {
     skyOverride: 'auto',
     previewHour: null,
     detailId: null,
+    statusFriendId: null,
     nowTick: Date.now()
   };
 }
@@ -125,6 +126,17 @@ export function useLoopedApp() {
     if (now > a.hour + (a.dur || 1.25)) return 'wrapped';
     if (now >= a.hour - 0.25) return 'now';
     return 'open';
+  }
+
+  // A friend counts as "live" if they're hosting or have joined something
+  // that's happening right now — regardless of whether you were invited or
+  // could see it. Only "today, happening now" counts; posted-for-later
+  // plans don't make someone live yet.
+  function currentActivityFor(friendId) {
+    return state.events.find(a => {
+      const involved = a.who === friendId || (a.joined || []).includes(friendId);
+      return involved && status(a) === 'now';
+    });
   }
 
   // ---------- optimistic local mutations, backed by real API calls ----------
@@ -322,23 +334,55 @@ export function useLoopedApp() {
   });
 
   // ---------- friend cards, with the circle they're placed in ----------
-  const friendCards = friends().map(f => ({
-    ...f,
-    initial: f.first[0].toUpperCase(),
-    circle: f.circle === 'inner' ? 'inner' : 'outer',
-    toggleCircle: async () => {
-      const next = f.circle === 'inner' ? 'outer' : 'inner';
-      setState(prev => ({
-        friendsRaw: prev.friendsRaw.map(x => (x.id === f.id ? { ...x, circle: next } : x))
-      }));
-      toast(next === 'inner' ? f.name + ' moved to your inner circle 💛' : f.name + ' moved to your outer circle');
-      try { await api.setFriendCircle(f.id, next); }
-      catch (e) {
-        setState(prev => ({ friendsRaw: prev.friendsRaw.map(x => (x.id === f.id ? { ...x, circle: f.circle } : x)) }));
-        toast("couldn't update that — try again 🙏");
+  const friendCards = friends().map(f => {
+    const liveActivity = currentActivityFor(f.id);
+    return {
+      ...f,
+      initial: f.first[0].toUpperCase(),
+      circle: f.circle === 'inner' ? 'inner' : 'outer',
+      live: !!liveActivity,
+      // tapping an orb in the ring opens their status card instead of
+      // toggling circle — circle is moved from inside that status card
+      showStatus: () => setState({ statusFriendId: f.id }),
+      toggleCircle: async () => {
+        const next = f.circle === 'inner' ? 'outer' : 'inner';
+        setState(prev => ({
+          friendsRaw: prev.friendsRaw.map(x => (x.id === f.id ? { ...x, circle: next } : x))
+        }));
+        toast(next === 'inner' ? f.name + ' moved to your inner circle 💛' : f.name + ' moved to your outer circle');
+        try { await api.setFriendCircle(f.id, next); }
+        catch (e) {
+          setState(prev => ({ friendsRaw: prev.friendsRaw.map(x => (x.id === f.id ? { ...x, circle: f.circle } : x)) }));
+          toast("couldn't update that — try again 🙏");
+        }
       }
-    }
-  }));
+    };
+  });
+
+  // ---------- status card shown when you tap a friend's orb in the ring ----------
+  // Live = hosting or joined something happening right now, whether or not
+  // you were invited or can see it. Offline = not currently doing anything.
+  const statusFriendCard = S.statusFriendId ? friendCards.find(f => f.id === S.statusFriendId) : null;
+  let friendStatus = null;
+  if (statusFriendCard) {
+    const act = currentActivityFor(statusFriendCard.id);
+    friendStatus = {
+      open: true,
+      id: statusFriendCard.id,
+      name: statusFriendCard.name,
+      color: statusFriendCard.color,
+      initial: statusFriendCard.initial,
+      circle: statusFriendCard.circle,
+      live: !!act,
+      statusLabel: act ? 'live' : 'offline',
+      activityLine: act ? act.what + ' ' + act.emoji : "not up to anything right now",
+      placeLine: act ? '📍 ' + act.place : null,
+      showOpenActivity: !!act,
+      openActivity: act ? () => setState({ statusFriendId: null, detailId: act.id }) : null,
+      toggleCircle: statusFriendCard.toggleCircle,
+      close: () => setState({ statusFriendId: null })
+    };
+  }
 
   // ---------- onboarding ----------
   const obFriendsList = S.obSuggested.map(f => {
@@ -675,7 +719,8 @@ export function useLoopedApp() {
       searchContacts: () => doSearch(),
       searchKeyDown: (e) => { if (e.key === 'Enter') doSearch(); },
       cards: friendCards,
-      you: { initial: (name[0] || 'y').toUpperCase(), color: '#ffb37e', avatarUrl: null }
+      you: { initial: (name[0] || 'y').toUpperCase(), color: '#ffb37e', avatarUrl: null },
+      status: friendStatus || { open: false }
     },
 
     profile: {

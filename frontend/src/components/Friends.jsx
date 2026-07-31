@@ -24,6 +24,11 @@ function FriendsRing({ you, friends, accent }) {
     border: ring ? '2.5px solid #ffd27a' : 'none',
   });
 
+  const liveDotStyle = {
+    position: 'absolute', top: -1, right: -1, width: 12, height: 12, borderRadius: '50%',
+    background: '#3ecf6a', border: '2px solid rgba(255,251,246,.95)'
+  };
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 22, justifyContent: 'center', flexWrap: 'wrap' }}>
       <div className="looped-ring-outer">
@@ -44,11 +49,14 @@ function FriendsRing({ you, friends, accent }) {
 
         {/* inner ring: friends you've placed in your inner circle */}
         {innerPlaced.map(fr => (
-          <div key={fr.id} onClick={fr.toggleCircle} style={{ position: 'absolute', top: center + fr.y - 22, left: center + fr.x - 22, width: 44, textAlign: 'center', cursor: 'pointer' }} title="tap to move to outer circle">
-            <div style={avatarStyle(44, fr.color, true)}>
-              {fr.avatarUrl
-                ? <img src={fr.avatarUrl} alt={fr.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                : fr.initial}
+          <div key={fr.id} onClick={fr.showStatus} style={{ position: 'absolute', top: center + fr.y - 22, left: center + fr.x - 22, width: 44, textAlign: 'center', cursor: 'pointer' }} title={fr.name + " — tap to see what they're up to"}>
+            <div style={{ position: 'relative' }}>
+              <div style={avatarStyle(44, fr.color, true)}>
+                {fr.avatarUrl
+                  ? <img src={fr.avatarUrl} alt={fr.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                  : fr.initial}
+              </div>
+              {fr.live && <div style={liveDotStyle} />}
             </div>
             <div style={{ marginTop: 4, font: '700 10.5px Karla,sans-serif', color: 'rgba(58,44,40,.6)', whiteSpace: 'nowrap' }}>
               {(fr.name || '').split(' ')[0]}
@@ -58,11 +66,14 @@ function FriendsRing({ you, friends, accent }) {
 
         {/* outer ring: everyone else */}
         {outerPlaced.map(fr => (
-          <div key={fr.id} onClick={fr.toggleCircle} style={{ position: 'absolute', top: center + fr.y - 20, left: center + fr.x - 20, width: 40, textAlign: 'center', cursor: 'pointer' }} title="tap to move to inner circle">
-            <div style={avatarStyle(40, fr.color, false)}>
-              {fr.avatarUrl
-                ? <img src={fr.avatarUrl} alt={fr.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                : fr.initial}
+          <div key={fr.id} onClick={fr.showStatus} style={{ position: 'absolute', top: center + fr.y - 20, left: center + fr.x - 20, width: 40, textAlign: 'center', cursor: 'pointer' }} title={fr.name + " — tap to see what they're up to"}>
+            <div style={{ position: 'relative' }}>
+              <div style={avatarStyle(40, fr.color, false)}>
+                {fr.avatarUrl
+                  ? <img src={fr.avatarUrl} alt={fr.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                  : fr.initial}
+              </div>
+              {fr.live && <div style={liveDotStyle} />}
             </div>
             <div style={{ marginTop: 4, font: '600 10px Karla,sans-serif', color: 'rgba(58,44,40,.55)', whiteSpace: 'nowrap' }}>
               {(fr.name || '').split(' ')[0]}
@@ -72,13 +83,13 @@ function FriendsRing({ you, friends, accent }) {
       </div>
       </div>
 
-      {/* legend explaining inner vs outer circle */}
+      {/* legend */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 190 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2.5px solid #ffd27a', background: 'rgba(255,255,255,.6)', flexShrink: 0, marginTop: 2 }} />
           <div>
             <div style={{ font: '800 12.5px Nunito,sans-serif', color: '#3a2c28' }}>inner circle</div>
-            <div style={{ font: '11.5px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.6)', marginTop: 2 }}>your closest people — tap anyone to move them between circles</div>
+            <div style={{ font: '11.5px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.6)', marginTop: 2 }}>your closest people</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -88,7 +99,57 @@ function FriendsRing({ you, friends, accent }) {
             <div style={{ font: '11.5px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.6)', marginTop: 2 }}>everyone else — still friends, just not as close</div>
           </div>
         </div>
-        <div style={{ font: '11px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.5)' }}>when you post, you can choose to share it with just your inner circle, your whole friend list, or everyone on looped</div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <div style={{ ...liveDotStyle, position: 'static', flexShrink: 0, marginTop: 3 }} />
+          <div style={{ font: '11.5px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.6)' }}>green dot = live right now</div>
+        </div>
+        <div style={{ font: '11px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.5)' }}>tap anyone in the ring to see what they're up to</div>
+      </div>
+    </div>
+  );
+}
+
+function FriendStatusCard({ status, accent }) {
+  if (!status.open) return null;
+  return (
+    <div onClick={status.close} className="looped-modal-overlay" style={{ background: 'rgba(58,44,40,.25)', backdropFilter: 'blur(3px)', zIndex: 55 }}>
+      <div onClick={(e) => e.stopPropagation()} className="looped-modal" style={{ maxWidth: 340, background: 'rgba(255,251,246,.94)', border: '1px solid rgba(255,255,255,.9)', backdropFilter: 'blur(20px)', borderRadius: 22, animation: 'loopPop .35s ease' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button onClick={status.close} style={{ cursor: 'pointer', border: 'none', background: 'rgba(58,44,40,.08)', color: '#3a2c28', font: '800 13px Nunito,sans-serif', width: 28, height: 28, borderRadius: '50%' }}>✕</button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: -6 }}>
+          <div style={{ position: 'relative', flex: 'none' }}>
+            <div style={{ width: 52, height: 52, borderRadius: '50%', background: status.color, display: 'grid', placeItems: 'center', font: '800 18px Nunito,sans-serif', color: '#fff' }}>{status.initial}</div>
+            <div style={{ position: 'absolute', top: -1, right: -1, width: 14, height: 14, borderRadius: '50%', background: status.live ? '#3ecf6a' : 'rgba(58,44,40,.3)', border: '2px solid rgba(255,251,246,.95)' }} />
+          </div>
+          <div>
+            <div style={{ font: '800 17px Nunito,sans-serif' }}>{status.name}</div>
+            <div style={{ font: '700 12px Karla,sans-serif', color: status.live ? '#2f9e52' : 'rgba(58,44,40,.55)', marginTop: 2 }}>
+              {status.live ? '🟢 live' : '⚪ offline'}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 16, background: 'rgba(58,44,40,.05)', borderRadius: 14, padding: '14px 16px' }}>
+          <div style={{ font: '700 15px Nunito,sans-serif', color: '#3a2c28' }}>{status.activityLine}</div>
+          {status.placeLine && <div style={{ font: '600 13px Karla,sans-serif', color: 'rgba(58,44,40,.65)', marginTop: 4 }}>{status.placeLine}</div>}
+        </div>
+
+        {status.showOpenActivity && (
+          <button onClick={status.openActivity} style={{ cursor: 'pointer', display: 'block', width: '100%', border: 'none', background: accent, color: '#fff', font: '800 14px Nunito,sans-serif', padding: 13, borderRadius: 999, marginTop: 16, boxShadow: '0 3px 12px rgba(255,138,92,.35)' }}>see details</button>
+        )}
+
+        <button
+          onClick={status.toggleCircle}
+          style={{
+            cursor: 'pointer', display: 'block', width: '100%', marginTop: 10,
+            border: status.circle === 'inner' ? '1.5px solid #ffd27a' : '1px dashed rgba(58,44,40,.3)',
+            background: status.circle === 'inner' ? 'rgba(255,210,122,.18)' : 'rgba(255,255,255,.6)',
+            color: '#3a2c28', font: '700 13px Karla,sans-serif', padding: 12, borderRadius: 999
+          }}
+        >
+          {status.circle === 'inner' ? '💛 in your inner circle — move to outer' : 'in your outer circle — move to inner'}
+        </button>
       </div>
     </div>
   );
@@ -127,26 +188,7 @@ export default function Friends({ friends, accent }) {
 
       <FriendsRing you={friends.you} friends={friends.cards} accent={accent} />
 
-      <div className="looped-friends-grid" style={{ marginTop: 22 }}>
-        {friends.cards.map(fr => (
-          <div key={fr.id} style={{ background: 'rgba(255,255,255,.5)', border: '1px solid rgba(255,255,255,.75)', backdropFilter: 'blur(12px)', borderRadius: 16, padding: '17px 17px 15px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', background: fr.color, display: 'grid', placeItems: 'center', font: '800 17px Nunito,sans-serif', color: '#fff', marginBottom: 7 }}>{fr.initial}</div>
-            <div style={{ font: '800 15.5px Nunito,sans-serif' }}>{fr.name}</div>
-            <div style={{ font: '12.5px/1.45 Karla,sans-serif', color: 'rgba(58,44,40,.65)', marginTop: 4 }}>{fr.bio}</div>
-            <button
-              onClick={fr.toggleCircle}
-              style={{
-                cursor: 'pointer', alignSelf: 'flex-start', marginTop: 9,
-                border: fr.circle === 'inner' ? '1.5px solid #ffd27a' : '1px dashed rgba(58,44,40,.3)',
-                background: fr.circle === 'inner' ? 'rgba(255,210,122,.18)' : 'rgba(255,255,255,.5)',
-                color: '#3a2c28', font: '700 11.5px Karla,sans-serif', padding: '6px 12px', borderRadius: 999
-              }}
-            >
-              {fr.circle === 'inner' ? '💛 inner circle' : 'outer circle'}
-            </button>
-          </div>
-        ))}
-      </div>
+      <FriendStatusCard status={friends.status} accent={accent} />
     </div>
   );
 }
