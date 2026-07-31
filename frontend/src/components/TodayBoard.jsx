@@ -26,7 +26,8 @@ export default function TodayBoard({ today, accent }) {
         />
         {today.slider.active && (
           <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ font: '700 12px Karla,sans-serif', color: '#3a2c28' }}>previewing {today.slider.label}</div>
+            <div style={{ font: '700 12px Karla,sans-serif', color: '#3a2c28' }}>previewing {today.slider.label}</div> 
+            {/* {today.slider.label} */}
             <button
               onClick={today.slider.reset}
               style={{ border: 'none', background: 'none', cursor: 'pointer', font: '700 12px Karla,sans-serif', color: accent, textDecoration: 'underline', padding: 0 }}

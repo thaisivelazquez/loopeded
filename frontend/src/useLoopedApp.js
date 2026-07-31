@@ -191,7 +191,7 @@ export function useLoopedApp() {
   // event status (now/wrapped stays truthful) — it just dims cards outside
   // the selected window. Defaults to following the live clock until the
   // user drags it; SLIDER_MIN/MAX match the board's 8am–1am display range.
-  const SLIDER_MIN = 8, SLIDER_MAX = 25;
+  const SLIDER_MIN = 8, SLIDER_MAX = 28;
   const previewActive = S.previewHour !== null;
   const previewValue = previewActive ? S.previewHour : now;
 
@@ -245,13 +245,19 @@ export function useLoopedApp() {
     };
   });
 
-  const edges = [[0, 12], [12, 17], [17, 21], [21, 25]];
+  const edges = [[0, 12], [12, 17], [17, 21], [21, 28]];
   const buckets = edges.map(([lo, hi]) => {
     const items = acts.filter(a => a.hour >= lo && a.hour < hi).sort((x, y) => x.hour - y.hour);
     return { items, empty: items.length === 0 };
   });
 
-  const tickMarks = [[SLIDER_MIN, '8 am'], [12, '12 pm'], [17, '5 pm'], [21, '9 pm']];
+  const tickMarks = [
+  [SLIDER_MIN, '8 am'],
+  [12, '12 pm'],
+  [17, '5 pm'],
+  [21, '9 pm'],
+  [25, '1 am']
+];
   const ticks = tickMarks.map(([h, label], i) => {
     const nextH = tickMarks[i + 1] ? tickMarks[i + 1][0] : SLIDER_MAX;
     const active = previewValue >= h && previewValue < nextH;
