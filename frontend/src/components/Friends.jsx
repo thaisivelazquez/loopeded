@@ -161,14 +161,80 @@ export default function Friends({ friends, accent }) {
       <div style={{ font: '800 32px Nunito,sans-serif' }}>your people</div>
       <div style={{ font: '14px Karla,sans-serif', color: 'rgba(58,44,40,.6)', marginTop: 5 }}>{friends.countLine}</div>
       <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <input
-            value={friends.query} onChange={friends.setQuery} onKeyDown={friends.inviteKeyDown}
-            inputMode="tel" placeholder="add a friend by phone number…"
-            style={{ flex: 1, border: '1px solid rgba(58,44,40,.2)', background: 'rgba(255,255,255,.6)', borderRadius: 999, padding: '12px 18px', font: '600 14px Karla,sans-serif', color: '#3a2c28' }}
-          />
-          <button onClick={friends.sendInvite} style={{ cursor: 'pointer', border: 'none', background: accent, color: '#fff', font: '800 13.5px Nunito,sans-serif', padding: '12px 20px', borderRadius: 999 }}>invite</button>
-        </div>
+<div style={{ display: 'flex', gap: 10 }}>
+  <div
+    style={{
+      display: 'flex',
+      flex: 1,
+      border: '1px solid rgba(58,44,40,.2)',
+      background: 'rgba(255,255,255,.6)',
+      borderRadius: 999,
+      overflow: 'hidden'
+    }}
+  >
+    <select
+      defaultValue="+1"
+      onChange={(e) => {
+        const code = e.target.value;
+        const current = friends.query.replace(/^\+\d+\s?/, '');
+
+        friends.setQuery({
+          target: {
+            value: code + ' ' + current
+          }
+        });
+      }}
+      style={{
+        border: 'none',
+        background: 'rgba(255,255,255,.45)',
+        padding: '0 12px',
+        font: '700 13px Karla,sans-serif',
+        color: '#3a2c28',
+        outline: 'none'
+      }}
+    >
+      <option value="+1">🇺🇸 +1</option>
+      <option value="+44">🇬🇧 +44</option>
+      <option value="+61">🇦🇺 +61</option>
+      <option value="+33">🇫🇷 +33</option>
+      <option value="+49">🇩🇪 +49</option>
+      <option value="+81">🇯🇵 +81</option>
+      <option value="+91">🇮🇳 +91</option>
+    </select>
+
+    <input
+      value={friends.query}
+      onChange={friends.setQuery}
+      onKeyDown={friends.inviteKeyDown}
+      inputMode="tel"
+      placeholder="phone number…"
+      style={{
+        flex: 1,
+        border: 'none',
+        background: 'transparent',
+        padding: '12px 14px',
+        font: '600 14px Karla,sans-serif',
+        color: '#3a2c28',
+        outline: 'none'
+      }}
+    />
+  </div>
+
+  <button
+    onClick={friends.sendInvite}
+    style={{
+      cursor: 'pointer',
+      border: 'none',
+      background: accent,
+      color: '#fff',
+      font: '800 13.5px Nunito,sans-serif',
+      padding: '12px 20px',
+      borderRadius: 999
+    }}
+  >
+    invite
+  </button>
+</div>
         {friends.contactsLinked ? (
           <>
             <div style={{ display: 'flex', gap: 10 }}>
