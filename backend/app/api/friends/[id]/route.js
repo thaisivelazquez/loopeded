@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { query } from "../../../../lib/db";
 import { requireCurrentUser } from "../../../../lib/auth";
-import { withCors, corsPreflight } from "../../../lib/cors";
+import { jsonError, withCors, corsPreflight } from "../../../../lib/format";
 
 export async function OPTIONS() {
   return corsPreflight();
