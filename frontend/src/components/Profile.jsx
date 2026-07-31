@@ -69,7 +69,7 @@ export default function Profile({ profile }) {
       </div>
 
       <div style={{ marginTop: 30 }}>
-        <button onClick={profile.resetApp} style={{ cursor: 'pointer', border: 'none', background: 'none', font: '600 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.45)', textDecoration: 'underline', padding: 0 }}>start over (replay onboarding)</button>
+        <button onClick={profile.resetApp} style={{ cursor: 'pointer', border: 'none', background: 'none', font: '600 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.45)', textDecoration: 'underline', padding: 0 }}>logout</button>
       </div>
     </div>
   );
