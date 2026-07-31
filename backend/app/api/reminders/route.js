@@ -23,14 +23,28 @@ import notify from '../../../lib/notify'
 // without needing sub-minute scheduling.
 export async function GET(request) {
   const token = new URL(request.url).searchParams.get("token");
+
   if (!process.env.CRON_SECRET || token !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    return withCors(
+      NextResponse.json(
+        { error: "unauthorized" },
+        { status: 401 }
+      ),
+      request
+    );
   }
 
   const soonCount = await sendStartingSoonReminders();
   const lastCallCount = await sendLastCallReminders();
 
-  return NextResponse.json({ ok: true, soonCount, lastCallCount });
+  return withCors(
+    NextResponse.json({
+      ok: true,
+      soonCount,
+      lastCallCount,
+    }),
+    request
+  );
 }
 
 async function sendStartingSoonReminders() {
