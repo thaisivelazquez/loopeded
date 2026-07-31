@@ -10,8 +10,8 @@ import { toBoardFields, fromBoardFields, postedAgo } from "../../../lib/time";
 import { dayLabelFor } from "../../../lib/dayLabel";
 import { notifyUser } from "../../../lib/notify";
 
-export async function OPTIONS() {
-  return corsPreflight();
+export async function OPTIONS(request) {
+  return corsPreflight(request);
 }
 
 // GET /api/events

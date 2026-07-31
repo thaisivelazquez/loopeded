@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { withCors, corsPreflight } from "../../../lib/format";
 
-export async function OPTIONS() {
-  return corsPreflight();
+export async function OPTIONS(request) {
+  return corsPreflight(request);
 }
 
 // POST /api/logout

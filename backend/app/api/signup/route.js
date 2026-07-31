@@ -4,8 +4,8 @@ import { query } from "../../../lib/db";
 import { withCors, corsPreflight } from "../../../lib/format";
 import { notifyUser } from "../../../lib/notify";
 
-export async function OPTIONS() {
-  return corsPreflight();
+export async function OPTIONS(request) {
+  return corsPreflight(request);
 }
 
 const WELCOME_TEXT =

@@ -9,8 +9,8 @@ import { notifyUsers } from "../../../../lib/notify";
 import { toBoardFields, fromBoardFields } from "../../../../lib/time";
 import { dayLabelFor } from "../../../../lib/dayLabel";
 
-export async function OPTIONS() {
-  return corsPreflight();
+export async function OPTIONS(request) {
+  return corsPreflight(request);
 }
 
 const VALID_VISIBILITY = new Set(["everyone", "inner", "outer"]);

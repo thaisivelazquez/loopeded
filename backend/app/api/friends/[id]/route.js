@@ -1,84 +1,78 @@
-// ====================================================
-// SAVE TO: backend/app/api/friends/[id]/route.js
-// ====================================================
 import { NextResponse } from "next/server";
-import { randomUUID } from "crypto";
-import { query } from "../../../../lib/db";
-import { requireCurrentUser } from "../../../../lib/auth";
-import { jsonError, withCors, corsPreflight } from "../../../../lib/format";
+import { HttpError } from "./auth";
 
-export async function OPTIONS() {
-  return corsPreflight();
+// "kat" + "tran" -> "kat tran" (raw first/last; the frontend's own fmtName()
+// in app/src/lib/data.js turns this into "kat t." for display, so the API
+// hands back the raw pieces instead of a pre-formatted string).
+export function displayName(firstName, lastName) {
+  return [firstName?.trim(), lastName?.trim()].filter(Boolean).join(" ");
 }
 
-// POST /api/friends/:id — "add" a suggested user from onboarding.
-// Unlike POST /api/friends (phone invite, stays 'pending'), this is a
-// direct mutual add: the mock UI has no accept/reject step anywhere, so
-// treating it as instantly 'accepted' matches what the frontend expects
-// to see, rather than silently creating an invisible pending request.
-export async function POST(request, { params }) {
-  try {
-    const user = await requireCurrentUser();
-    const { id } = params;
-    if (id === user.id) {
-      return withCors(NextResponse.json({ error: "you can't friend yourself" }, { status: 400 }));
-    }
-
-    const [userAId, userBId] = [user.id, id].sort();
-    await query(
-      `INSERT INTO "Friendship" (id, "userAId", "userBId", status)
-       VALUES ($1, $2, $3, 'accepted')
-       ON CONFLICT ("userAId", "userBId") DO UPDATE SET status = 'accepted'`,
-      [randomUUID(), userAId, userBId]
+export function jsonError(err) {
+  if (err instanceof HttpError) {
+    return withCors(
+      NextResponse.json(
+        { error: err.message },
+        { status: err.status }
+      )
     );
-
-    return withCors(NextResponse.json({ added: true }));
-  } catch (err) {
-    return jsonError(err);
   }
+
+  console.error(err);
+
+  return withCors(
+    NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    )
+  );
 }
 
-// PATCH /api/friends/:id   body: { circle: 'inner' | 'outer' }
-// Lets you move a friend between your inner and outer circle. This is
-// per-direction — it only updates *your* side of the Friendship row
-// ("circleA" if you're userA, "circleB" if you're userB), so your friend's
-// own view of the circle they've put you in is untouched.
-export async function PATCH(request, { params }) {
-  try {
-    const user = await requireCurrentUser();
-    const { id } = params;
-    const body = await request.json();
-    const circle = body.circle === "inner" ? "inner" : "outer";
+// Frontend origins allowed to call this API.
+// Railway production frontend + local development.
+const ALLOWED_ORIGINS = new Set([
+  "https://looped.up.railway.app",
+  "http://localhost:5173",
+]);
 
-    const [userAId, userBId] = [user.id, id].sort();
-    const column = user.id === userAId ? '"circleA"' : '"circleB"';
+function getAllowedOrigin(request) {
+  const requestOrigin = request?.headers?.get("origin");
 
-    const { rows } = await query(
-      `UPDATE "Friendship" SET ${column} = $1
-        WHERE "userAId" = $2 AND "userBId" = $3 AND status = 'accepted'
-        RETURNING id`,
-      [circle, userAId, userBId]
-    );
-
-    if (!rows[0]) {
-      return withCors(NextResponse.json({ error: "not friends with that user" }, { status: 404 }));
-    }
-
-    return withCors(NextResponse.json({ id, circle }));
-  } catch (err) {
-    return jsonError(err);
+  if (requestOrigin && ALLOWED_ORIGINS.has(requestOrigin)) {
+    return requestOrigin;
   }
+
+  // Fallback for server-side calls or missing origin.
+  return "https://looped.up.railway.app";
 }
 
-// DELETE /api/friends/:id — unadd (used by the toggle in onboarding step 2).
-export async function DELETE(request, { params }) {
-  try {
-    const user = await requireCurrentUser();
-    const { id } = params;
-    const [userAId, userBId] = [user.id, id].sort();
-    await query(`DELETE FROM "Friendship" WHERE "userAId" = $1 AND "userBId" = $2`, [userAId, userBId]);
-    return withCors(NextResponse.json({ added: false }));
-  } catch (err) {
-    return jsonError(err);
-  }
+export function withCors(res, request = null) {
+  res.headers.set(
+    "Access-Control-Allow-Origin",
+    getAllowedOrigin(request)
+  );
+
+  res.headers.set(
+    "Access-Control-Allow-Credentials",
+    "true"
+  );
+
+  res.headers.set(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PATCH,DELETE,OPTIONS"
+  );
+
+  res.headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization"
+  );
+
+  return res;
+}
+
+export function corsPreflight(request) {
+  return withCors(
+    new NextResponse(null, { status: 204 }),
+    request
+  );
 }

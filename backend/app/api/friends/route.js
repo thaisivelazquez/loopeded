@@ -8,8 +8,8 @@ import { requireCurrentUser } from "../../../lib/auth";
 import { colorForId } from "../../../lib/colors";
 import { jsonError, withCors, corsPreflight } from "../../../lib/format";
 
-export async function OPTIONS() {
-  return corsPreflight();
+export async function OPTIONS(request) {
+  return corsPreflight(request);
 }
 
 // GET /api/friends

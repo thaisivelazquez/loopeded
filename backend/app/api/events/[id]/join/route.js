@@ -8,8 +8,8 @@ import { requireCurrentUser } from "../../../../../lib/auth";
 import { jsonError, withCors, corsPreflight } from "../../../../../lib/format";
 import { notifyUser } from "../../../../../lib/notify";
 
-export async function OPTIONS() {
-  return corsPreflight();
+export async function OPTIONS(request) {
+  return corsPreflight(request);
 }
 
 // POST /api/events/:id/join   — "i'm in" / "i'll be there!"

@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { twilioClient, VERIFY_SERVICE_SID } from "../../../../lib/twilio";
 import { withCors, corsPreflight } from "../../../../lib/format";
 
-export async function OPTIONS() {
-  return corsPreflight();
+export async function OPTIONS(request) {
+  return corsPreflight(request);
 }
 
 // POST /api/verify/check   body: { phone: string, code: string }

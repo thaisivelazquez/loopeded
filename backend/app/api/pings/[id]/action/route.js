@@ -7,8 +7,8 @@ import { query } from "../../../../../lib/db";
 import { requireCurrentUser } from "../../../../../lib/auth";
 import { jsonError, withCors, corsPreflight } from "../../../../../lib/format";
 
-export async function OPTIONS() {
-  return corsPreflight();
+export async function OPTIONS(request) {
+  return corsPreflight(request);
 }
 
 // POST /api/pings/:id/action
