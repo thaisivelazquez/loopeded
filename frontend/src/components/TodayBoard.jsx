@@ -25,8 +25,10 @@ export default function TodayBoard({ today, accent }) {
           style={{ width: '100%', marginTop: 8, display: 'block' }}
         />
         {today.slider.active && (
-          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ font: '700 12px Karla,sans-serif', color: '#3a2c28' }}>previewing {today.slider.label}</div> 
+          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ font: '700 12px Karla,sans-serif', color: '#3a2c28' }}>
+  {today.slider.value > 25 ? 'previewing later tonight' : `previewing ${today.slider.label}`}
+</div>
+ <div style={{ font: '700 12px Karla,sans-serif', color: '#3a2c28' }}>previewing {today.slider.label}</div> 
             {/* {today.slider.label} */}
             <button
               onClick={today.slider.reset}
