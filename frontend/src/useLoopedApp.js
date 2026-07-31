@@ -251,7 +251,7 @@ export function useLoopedApp() {
     return { items, empty: items.length === 0 };
   });
 
-  const tickMarks = [[SLIDER_MIN, '8 am'], [12, 'noon'], [17, '5 pm'], [21, '9 pm']];
+  const tickMarks = [[SLIDER_MIN, '8 am'], [12, '12:00'], [17, '5 pm'], [21, '9 pm']];
   const ticks = tickMarks.map(([h, label], i) => {
     const nextH = tickMarks[i + 1] ? tickMarks[i + 1][0] : SLIDER_MAX;
     const active = previewValue >= h && previewValue < nextH;
