@@ -85,7 +85,7 @@ export default function TodayBoard({ today, accent }) {
         ))}
       </div>
 
-      <button onClick={today.openComposer} style={{ marginTop: 26, cursor: 'pointer', border: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, background: accent, color: '#fff', borderRadius: 999, padding: '14px 22px', font: '800 14.5px Nunito,sans-serif', boxShadow: '0 3px 12px rgba(255,138,92,.4)' }}>+ add yours to the board</button>
+      <button onClick={today.openComposer} style={{ marginTop: 26, cursor: 'pointer', border: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, background: accent, color: '#fff', borderRadius: 999, padding: '14px 22px', font: '800 14.5px Nunito,sans-serif', boxShadow: '0 3px 12px rgba(255,138,92,.4)' }}>+ add a sidequest</button>
 
       {/* later this week */}
       <div style={{ marginTop: 44, font: '800 20px Nunito,sans-serif' }}>later this week</div>
