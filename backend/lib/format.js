@@ -10,28 +10,67 @@ export function displayName(firstName, lastName) {
 
 export function jsonError(err) {
   if (err instanceof HttpError) {
-    return withCors(NextResponse.json({ error: err.message }, { status: err.status }));
+    return withCors(
+      NextResponse.json(
+        { error: err.message },
+        { status: err.status }
+      )
+    );
   }
+
   console.error(err);
-  return withCors(NextResponse.json({ error: "Internal server error" }, { status: 500 }));
+
+  return withCors(
+    NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    )
+  );
 }
 
-// The v1 frontend (Vite, its own dev port) is a different origin from this
-// Next.js API, and every route relies on the httpOnly "userId" cookie, so
-// requests need `credentials: "include"` on the client and an explicit
-// CORS allow-list (with credentials) on the server — "*" won't work once
-// credentials are involved. Set FRONTEND_ORIGIN in .env.local, e.g.
-// FRONTEND_ORIGIN=http://localhost:5173
-const ALLOWED_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+// Allowed frontend origins
+const ALLOWED_ORIGINS = [
+  "https://looped.up.railway.app",
+  "http://localhost:5173",
+];
 
-export function withCors(res) {
-  res.headers.set("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
-  res.headers.set("Access-Control-Allow-Credentials", "true");
-  res.headers.set("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
-  res.headers.set("Access-Control-Allow-Headers", "Content-Type");
+function getOrigin(request) {
+  const origin = request?.headers?.get("origin");
+
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    return origin;
+  }
+
+  return "https://looped.up.railway.app";
+}
+
+export function withCors(res, request = null) {
+  res.headers.set(
+    "Access-Control-Allow-Origin",
+    getOrigin(request)
+  );
+
+  res.headers.set(
+    "Access-Control-Allow-Credentials",
+    "true"
+  );
+
+  res.headers.set(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PATCH,DELETE,OPTIONS"
+  );
+
+  res.headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization"
+  );
+
   return res;
 }
 
-export function corsPreflight() {
-  return withCors(new NextResponse(null, { status: 204 }));
+export function corsPreflight(request) {
+  return withCors(
+    new NextResponse(null, { status: 204 }),
+    request
+  );
 }
