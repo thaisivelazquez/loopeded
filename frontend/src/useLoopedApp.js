@@ -22,7 +22,7 @@ function initialState() {
     onboarded: false,
     obStep: 1, // 1 = name+phone, 2 = verify code, 3 = suggested friends
     obFirst: '', obLast: '', obPhone: '', obCountry: '+1',
-    obCode: '', codeError: '', sendingCode: false, verifying: false, resendCooldown: 0,
+    obCode: '', codeError: '', sendingCode: false, verifying: false, resendCooldown: 0, resending: false,
     obSuggested: [], obAdded: [],
     friendsRaw: [],
     events: [],
@@ -455,13 +455,16 @@ export function useLoopedApp() {
   }
 
   async function resendCodeFn() {
-    if (S.resendCooldown > 0) return;
+    if (S.resendCooldown > 0 || S.resending) return;
+    setState({ resending: true });
     try {
       await api.sendVerificationCode(fullPhone());
       startResendCooldown();
       toast('sent another code 📲');
     } catch (e) {
       toast(e.message || "couldn't resend that code 🙏");
+    } finally {
+      setState({ resending: false });
     }
   }
 
@@ -680,6 +683,7 @@ export function useLoopedApp() {
       verify: verifyCodeFn,
       resend: resendCodeFn,
       resendCooldown: S.resendCooldown,
+      resending: S.resending,
 
       friendsList: obFriendsList,
       dots: obDots,

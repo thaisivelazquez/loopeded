@@ -71,8 +71,8 @@ export default function Onboarding({ ob, accent }) {
               {ob.verifying ? 'checking…' : 'verify'}
             </button>
             <button
-              onClick={ob.resend} disabled={ob.resendCooldown > 0}
-              style={{ border: 'none', background: 'none', cursor: ob.resendCooldown > 0 ? 'default' : 'pointer', font: '700 13px Karla,sans-serif', color: ob.resendCooldown > 0 ? 'rgba(58,44,40,.4)' : '#3a2c28', textDecoration: ob.resendCooldown > 0 ? 'none' : 'underline', padding: 0, alignSelf: 'center' }}
+              onClick={ob.resend} disabled={ob.resendCooldown > 0 || ob.resending}
+              style={{ border: 'none', background: 'none', cursor: (ob.resendCooldown > 0 || ob.resending) ? 'default' : 'pointer', font: '700 13px Karla,sans-serif', color: (ob.resendCooldown > 0 || ob.resending) ? 'rgba(58,44,40,.4)' : '#3a2c28', textDecoration: (ob.resendCooldown > 0 || ob.resending) ? 'none' : 'underline', padding: 0, alignSelf: 'center' }}
             >
               {ob.resendCooldown > 0 ? `resend code (${ob.resendCooldown}s)` : "didn't get it? resend code"}
             </button>
