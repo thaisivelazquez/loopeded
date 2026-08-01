@@ -16,7 +16,7 @@ export async function OPTIONS(request) {
 // if there is one, and marks the ping read either way.
 export async function POST(request, { params }) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     const { id } = params;
 
     const { rows } = await query(`SELECT "eventId" FROM "Ping" WHERE id = $1 AND "recipientId" = $2`, [

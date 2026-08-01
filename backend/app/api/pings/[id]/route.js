@@ -14,7 +14,7 @@ export async function OPTIONS(request) {
 // Recipient-only: you can only delete pings that were sent to you.
 export async function DELETE(request, { params }) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     const { id } = params;
 
     const { rows } = await query(

@@ -20,9 +20,9 @@ export async function OPTIONS(request) {
 // <Friends />. `circle` reflects how *you* (the viewer) have classified that
 // friend — it's per-direction, not mutual, so it's read from "circleA" or
 // "circleB" depending on which side of the Friendship row you're on.
-export async function GET() {
+export async function GET(request) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
 
     const { rows } = await query(
       `WITH soon_events AS (
@@ -64,7 +64,7 @@ export async function GET() {
 // POST /api/friends   body: { phone: string }  — the invite row in <Friends />
 export async function POST(request) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     const body = await request.json();
     const phone = (body.phone ?? "").trim();
 

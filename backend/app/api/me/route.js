@@ -12,9 +12,9 @@ export async function OPTIONS(request) {
 // NOTE: in v1 "posts" means activities you've hosted, not the old
 // free-text Post table (that was a different app's "what's up?" board) —
 // so postsCount now counts "Event" rows, not "Post" rows.
-export async function GET() {
+export async function GET(request) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
 
     const { rows: friendRows } = await query(
       `SELECT COUNT(*)::int AS count FROM "Friendship" WHERE status = 'accepted' AND $1 IN ("userAId", "userBId")`,
@@ -49,7 +49,7 @@ export async function GET() {
 // PATCH /api/me   body: { bio: string }
 export async function PATCH(request) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     const body = await request.json();
 
     if (typeof body.bio !== "string") {

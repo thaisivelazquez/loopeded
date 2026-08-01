@@ -18,7 +18,7 @@ export async function OPTIONS() {
 // to see, rather than silently creating an invisible pending request.
 export async function POST(request, { params }) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     const { id } = params;
     if (id === user.id) {
       return withCors(NextResponse.json({ error: "you can't friend yourself" }, { status: 400 }));
@@ -45,7 +45,7 @@ export async function POST(request, { params }) {
 // own view of the circle they've put you in is untouched.
 export async function PATCH(request, { params }) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     const { id } = params;
     const body = await request.json();
     const circle = body.circle === "inner" ? "inner" : "outer";
@@ -73,7 +73,7 @@ export async function PATCH(request, { params }) {
 // DELETE /api/friends/:id — unadd (used by the toggle in onboarding step 2).
 export async function DELETE(request, { params }) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     const { id } = params;
     const [userAId, userBId] = [user.id, id].sort();
     await query(`DELETE FROM "Friendship" WHERE "userAId" = $1 AND "userBId" = $2`, [userAId, userBId]);

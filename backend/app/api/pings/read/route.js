@@ -8,9 +8,9 @@ export async function OPTIONS(request) {
 }
 
 // POST /api/pings/read — backs the "mark all read" action in <Pings />.
-export async function POST() {
+export async function POST(request) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     await query(`UPDATE "Ping" SET read = true WHERE "recipientId" = $1 AND read = false`, [user.id]);
     return withCors(NextResponse.json({ ok: true }));
   } catch (err) {

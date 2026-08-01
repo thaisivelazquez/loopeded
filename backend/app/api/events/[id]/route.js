@@ -22,7 +22,7 @@ const VALID_VISIBILITY = new Set(["everyone", "inner", "outer"]);
 // Anyone already joined gets a light heads-up ping that the plan changed.
 export async function PATCH(request, { params }) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     const { id } = params;
     const body = await request.json();
 
@@ -96,7 +96,7 @@ export async function PATCH(request, { params }) {
 // gets a cancellation notification (ping + SMS) before the row disappears.
 export async function DELETE(request, { params }) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     const { id } = params;
 
     const { rows } = await query(`SELECT "hostId", title FROM "Event" WHERE id = $1`, [id]);

@@ -18,7 +18,7 @@ export async function OPTIONS(request) {
 // the "ask to join" state <EventDetail /> shows once an event is full.
 export async function POST(request, { params }) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     const { id } = params;
 
     const { rows: eventRows } = await query(
@@ -62,7 +62,7 @@ export async function POST(request, { params }) {
 // DELETE /api/events/:id/join — back out quietly
 export async function DELETE(request, { params }) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     const { id } = params;
     await query(`DELETE FROM "EventJoin" WHERE "eventId" = $1 AND "userId" = $2`, [id, user.id]);
     return withCors(NextResponse.json({ joined: false }));

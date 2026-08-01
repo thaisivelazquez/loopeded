@@ -31,9 +31,9 @@ export async function OPTIONS(request) {
 // through 5 days out (matches the composer's day picker, which only offers
 // 0-5). `who` is the host's userId — the frontend already looks friends up
 // by id via friendById(), so no name-joining is needed here.
-export async function GET() {
+export async function GET(request) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     const now = new Date();
 
     const { rows: events } = await query(
@@ -125,7 +125,7 @@ const VALID_VISIBILITY = new Set(["everyone", "inner", "outer"]);
 // POST /api/events   body from <Composer />: { emoji, what, place, note, dayOffset, hour, spots, visibility }
 export async function POST(request) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     const body = await request.json();
 
     const what = (body.what ?? "").trim();

@@ -16,9 +16,9 @@ export async function OPTIONS(request) {
 // smarter (contacts match, mutuals, etc.) later — every route only cares
 // that this returns the same {id, first, last, bio, color} shape as
 // /api/friends.
-export async function GET() {
+export async function GET(request) {
   try {
-    const user = await requireCurrentUser();
+    const user = await requireCurrentUser(request);
     const { rows } = await query(
       `SELECT id, "firstName", "lastName", bio
          FROM "User"
