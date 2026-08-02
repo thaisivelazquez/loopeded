@@ -150,6 +150,19 @@ function FriendStatusCard({ status, accent }) {
         >
           {status.circle === 'inner' ? '💛 in your inner circle — move to outer' : 'in your outer circle — move to inner'}
         </button>
+
+        <button
+          onClick={status.removeFriend}
+          style={{
+            cursor: 'pointer', display: 'block', width: '100%', marginTop: 10,
+            border: status.removeArmed ? '1.5px solid #e0574c' : 'none',
+            background: status.removeArmed ? 'rgba(224,87,76,.1)' : 'transparent',
+            color: status.removeArmed ? '#c13d33' : 'rgba(58,44,40,.45)',
+            font: '700 12.5px Karla,sans-serif', padding: 10, borderRadius: 999
+          }}
+        >
+          {status.removeArmed ? 'tap again to remove 💔' : 'remove friend'}
+        </button>
       </div>
     </div>
   );

@@ -35,6 +35,7 @@ function initialState() {
     previewHour: null,
     detailId: null,
     statusFriendId: null,
+    confirmRemoveId: null,
     nowTick: Date.now()
   };
 }
@@ -185,7 +186,7 @@ export function useLoopedApp() {
     const whoName = a.isYours ? 'you' : (friendById(a.who) ? friendById(a.who).name : a.who);
     if (a.youIn) {
       patchEvent(a.id, { youIn: false });
-      toast('no worries, we let the host know you cant make it');
+      toast('no worries, backed out quietly');
       try { await api.leaveEvent(a.id); } catch (e) { patchEvent(a.id, { youIn: true }); }
       return;
     }
@@ -441,7 +442,31 @@ export function useLoopedApp() {
       showOpenActivity: !!act,
       openActivity: act ? () => setState({ statusFriendId: null, detailId: act.id }) : null,
       toggleCircle: statusFriendCard.toggleCircle,
-      close: () => setState({ statusFriendId: null })
+      // Two-tap confirm rather than a native confirm() popup, to match the
+      // rest of the app's tone. First tap arms it (button relabels itself
+      // as a confirmation); a second tap on the same friend actually
+      // removes them. Opening a different friend's card, or closing this
+      // one, disarms it again.
+      removeArmed: S.confirmRemoveId === statusFriendCard.id,
+      removeFriend: () => {
+        if (S.confirmRemoveId !== statusFriendCard.id) {
+          setState({ confirmRemoveId: statusFriendCard.id });
+          return;
+        }
+        const id = statusFriendCard.id;
+        const removedName = statusFriendCard.name;
+        setState(prev => ({
+          friendsRaw: prev.friendsRaw.filter(x => x.id !== id),
+          statusFriendId: null,
+          confirmRemoveId: null
+        }));
+        toast(removedName + ' removed from your friends');
+        api.removeFriend(id).catch(async () => {
+          toast("couldn't remove that friend — try again 🙏");
+          await loadBoard();
+        });
+      },
+      close: () => setState({ statusFriendId: null, confirmRemoveId: null })
     };
   }
 
