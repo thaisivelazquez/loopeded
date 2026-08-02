@@ -153,7 +153,7 @@ export function useLoopedApp() {
     const whoName = a.isYours ? 'you' : (friendById(a.who) ? friendById(a.who).name : a.who);
     if (a.youIn) {
       patchEvent(a.id, { youIn: false });
-      toast('no worries, backed out quietly');
+      toast('you let the host know you cant make it');
       try { await api.leaveEvent(a.id); } catch (e) { patchEvent(a.id, { youIn: true }); }
       return;
     }
