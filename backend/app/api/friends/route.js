@@ -7,6 +7,7 @@ import { query } from "../../../lib/db";
 import { requireCurrentUser } from "../../../lib/auth";
 import { colorForId } from "../../../lib/colors";
 import { jsonError, withCors, corsPreflight } from "../../../lib/format";
+import { notifyUser } from "../../../lib/notify";
 
 export async function OPTIONS(request) {
   return corsPreflight(request);
@@ -88,12 +89,25 @@ export async function POST(request) {
     }
 
     const [userAId, userBId] = [user.id, target.id].sort();
-    await query(
+    const { rows: friendshipRows } = await query(
       `INSERT INTO "Friendship" (id, "userAId", "userBId", status)
        VALUES ($1, $2, $3, 'pending')
-       ON CONFLICT ("userAId", "userBId") DO NOTHING`,
+       ON CONFLICT ("userAId", "userBId") DO NOTHING
+       RETURNING id`,
       [randomUUID(), userAId, userBId]
     );
+
+    // Only ping on a brand-new request — ON CONFLICT DO NOTHING means no
+    // row comes back if you two already have a pending or accepted
+    // Friendship, so this won't spam a repeat "add" tap.
+    if (friendshipRows[0]) {
+      await notifyUser({
+        recipientId: target.id,
+        requesterId: user.id,
+        text: `${user.firstName} wants to be friends`,
+        cta: "accept"
+      });
+    }
 
     return withCors(NextResponse.json({ invited: true }));
   } catch (err) {

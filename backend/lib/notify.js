@@ -15,11 +15,11 @@ const FROM_NUMBER = process.env.TWILIO_FROM_NUMBER;
 //   phoneVerified number and TWILIO_FROM_NUMBER is configured. SMS failures
 //   are logged but never block the ping or bubble up to the caller — a
 //   notification should never fail an event/join/cancel request.
-export async function notifyUser({ recipientId, eventId = null, text, cta = null }) {
+export async function notifyUser({ recipientId, eventId = null, requesterId = null, text, cta = null }) {
   await query(
-    `INSERT INTO "Ping" (id, "recipientId", "eventId", text, cta, read)
-     VALUES ($1, $2, $3, $4, $5, false)`,
-    [randomUUID(), recipientId, eventId, text, cta]
+    `INSERT INTO "Ping" (id, "recipientId", "eventId", "requesterId", text, cta, read)
+     VALUES ($1, $2, $3, $4, $5, $6, false)`,
+    [randomUUID(), recipientId, eventId, requesterId, text, cta]
   );
 
   if (!FROM_NUMBER) return;

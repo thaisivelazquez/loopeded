@@ -17,7 +17,7 @@ export async function GET(request) {
     const user = await requireCurrentUser(request);
 
     const { rows } = await query(
-      `SELECT p.id, p.text, p.cta, p.read, p."createdAt", p."eventId",
+      `SELECT p.id, p.text, p.cta, p.read, p."createdAt", p."eventId", p."requesterId",
               e."hostId"
          FROM "Ping" p
          LEFT JOIN "Event" e ON e.id = p."eventId"
@@ -41,6 +41,7 @@ export async function GET(request) {
       id: r.id,
       who: r.hostId || null,
       actId: r.eventId || null,
+      requesterId: r.requesterId || null,
       text: r.text,
       when: relativeTime(r.createdAt),
       unread: !r.read,

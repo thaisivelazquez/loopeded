@@ -84,6 +84,6 @@ export const api = {
 
   pings: () => request('/api/pings'),
   markPingsRead: () => request('/api/pings/read', { method: 'POST' }),
-  pingAction: (id) => request(`/api/pings/${id}/action`, { method: 'POST' }),
+  pingAction: (id, decision) => request(`/api/pings/${id}/action`, { method: 'POST', body: JSON.stringify({ decision }) }),
   deletePing: (id) => request(`/api/pings/${id}`, { method: 'DELETE' })
 };

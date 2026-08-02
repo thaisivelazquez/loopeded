@@ -310,8 +310,9 @@ export function useLoopedApp() {
     go: () => setState({ view: v })
   }));
 
-  const pings = S.pingsRaw.map(p => {
+const pings = S.pingsRaw.map(p => {
     const f = p.who ? friendById(p.who) : null;
+    const isFriendRequest = !!p.requesterId;
     return {
       key: p.id,
       text: p.text, when: p.when,
@@ -319,7 +320,8 @@ export function useLoopedApp() {
       color: f ? f.color : 'rgba(58,44,40,.25)',
       bg: p.unread ? 'rgba(255,255,255,.65)' : 'rgba(255,255,255,.42)',
       unread: !!p.unread,
-      hasAction: !!p.action && !p.going,
+      isFriendRequest,
+      hasAction: !!p.action && !p.going && !isFriendRequest,
       going: !!p.going,
       actionLabel: p.action,
       act: async () => {
@@ -330,6 +332,27 @@ export function useLoopedApp() {
         toast("going 🎉 it's on your board");
         try { await api.pingAction(p.id); } catch (e) { await loadBoard(); }
       },
+      // ---------- friend request: accept / decline ----------
+      accept: async () => {
+        setState(prev => ({ pingsRaw: prev.pingsRaw.filter(x => x.id !== p.id) }));
+        toast("you're friends now 🎉");
+        try {
+          await api.pingAction(p.id, 'accept');
+          await loadBoard(); // pulls the new friend into the friends list right away
+        } catch (e) {
+          await loadBoard();
+          toast("couldn't accept that — try again 🙏");
+        }
+      },
+      decline: async () => {
+        setState(prev => ({ pingsRaw: prev.pingsRaw.filter(x => x.id !== p.id) }));
+        try {
+          await api.pingAction(p.id, 'decline');
+        } catch (e) {
+          await loadBoard();
+          toast("couldn't decline that — try again 🙏");
+        }
+      },
       // ---------- delete a single notification ----------
       del: async (e) => {
         if (e) e.stopPropagation();
@@ -338,32 +361,7 @@ export function useLoopedApp() {
       }
     };
   });
-
-  // ---------- friend cards, with the circle they're placed in ----------
-  const friendCards = friends().map(f => {
-    const liveActivity = currentActivityFor(f.id);
-    return {
-      ...f,
-      initial: f.first[0].toUpperCase(),
-      circle: f.circle === 'inner' ? 'inner' : 'outer',
-      live: !!liveActivity,
-      // tapping an orb in the ring opens their status card instead of
-      // toggling circle — circle is moved from inside that status card
-      showStatus: () => setState({ statusFriendId: f.id }),
-      toggleCircle: async () => {
-        const next = f.circle === 'inner' ? 'outer' : 'inner';
-        setState(prev => ({
-          friendsRaw: prev.friendsRaw.map(x => (x.id === f.id ? { ...x, circle: next } : x))
-        }));
-        toast(next === 'inner' ? f.name + ' moved to your inner circle 💛' : f.name + ' moved to your outer circle');
-        try { await api.setFriendCircle(f.id, next); }
-        catch (e) {
-          setState(prev => ({ friendsRaw: prev.friendsRaw.map(x => (x.id === f.id ? { ...x, circle: f.circle } : x)) }));
-          toast("couldn't update that — try again 🙏");
-        }
-      }
-    };
-  });
+ 
 
   // ---------- status card shown when you tap a friend's orb in the ring ----------
   // Live = hosting or joined something happening right now, whether or not

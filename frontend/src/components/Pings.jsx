@@ -16,6 +16,12 @@ export default function Pings({ pings, accent }) {
               <div style={{ font: '600 13.5px/1.4 Karla,sans-serif' }}>{ping.text}</div>
               <div style={{ font: '11.5px Karla,sans-serif', color: 'rgba(58,44,40,.5)' }}>{ping.when}</div>
             </div>
+            {ping.isFriendRequest && (
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, flex: 'none' }}>
+                <button onClick={ping.decline} style={{ cursor: 'pointer', border: 'none', background: 'rgba(58,44,40,.08)', color: 'rgba(58,44,40,.7)', font: '800 11.5px Nunito,sans-serif', padding: '8px 14px', borderRadius: 999 }}>decline</button>
+                <button onClick={ping.accept} style={{ cursor: 'pointer', border: 'none', background: accent, color: '#fff', font: '800 11.5px Nunito,sans-serif', padding: '8px 14px', borderRadius: 999 }}>accept</button>
+              </div>
+            )}
             {ping.hasAction && (
               <button onClick={ping.act} style={{ marginLeft: 'auto', cursor: 'pointer', border: 'none', background: accent, color: '#fff', font: '800 11.5px Nunito,sans-serif', padding: '8px 14px', borderRadius: 999, flex: 'none' }}>{ping.actionLabel}</button>
             )}
@@ -23,12 +29,12 @@ export default function Pings({ pings, accent }) {
               <div style={{ marginLeft: ping.hasAction ? 0 : 'auto', background: '#3a2c28', color: '#ffe9c2', font: '800 11.5px Nunito,sans-serif', padding: '8px 14px', borderRadius: 999, flex: 'none' }}>going ✓</div>
             )}
             {ping.unread && (
-              <div style={{ marginLeft: (ping.hasAction || ping.going) ? 0 : 'auto', width: 8, height: 8, borderRadius: '50%', background: accent, flex: 'none' }} />
+              <div style={{ marginLeft: (ping.hasAction || ping.going || ping.isFriendRequest) ? 0 : 'auto', width: 8, height: 8, borderRadius: '50%', background: accent, flex: 'none' }} />
             )}
             <button
               onClick={ping.del}
               title="delete notification"
-              style={{ marginLeft: (ping.hasAction || ping.going || ping.unread) ? 4 : 'auto', cursor: 'pointer', border: 'none', background: 'rgba(58,44,40,.08)', color: 'rgba(58,44,40,.6)', font: '800 12px Nunito,sans-serif', width: 26, height: 26, borderRadius: '50%', flex: 'none' }}
+              style={{ marginLeft: (ping.hasAction || ping.going || ping.unread || ping.isFriendRequest) ? 4 : 'auto', cursor: 'pointer', border: 'none', background: 'rgba(58,44,40,.08)', color: 'rgba(58,44,40,.6)', font: '800 12px Nunito,sans-serif', width: 26, height: 26, borderRadius: '50%', flex: 'none' }}
             >✕</button>
           </div>
         ))}
