@@ -806,12 +806,21 @@ export function useLoopedApp() {
     toast: { shown: !!S.toast, text: S.toast }
   };
 
+  function normalizeInvitePhone(raw) {
+    const trimmed = raw.trim();
+    const digits = trimmed.replace(/\D/g, '');
+    if (trimmed.startsWith('+')) return '+' + digits;
+    if (digits.length === 11 && digits.startsWith('1')) return '+' + digits;
+    return '+1' + digits; // assume US/Canada if no country code was given
+  }
+
   function doInvite() {
     const q = S.friendQuery.trim();
     const digits = q.replace(/\D/g, '');
     if (digits.length < 7) { toast('enter a phone number to invite 📱'); return; }
+    const phone = normalizeInvitePhone(q);
     setState({ friendQuery: '' });
-    api.inviteFriend(q)
+    api.inviteFriend(phone)
       .then(res => toast(res.invited ? 'invite texted to ' + q + ' ✉️' : (res.message || 'invite sent')))
       .catch(() => toast("couldn't send that invite 🙏"));
   }
