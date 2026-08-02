@@ -16,11 +16,21 @@ const FROM_NUMBER = process.env.TWILIO_FROM_NUMBER;
 //   are logged but never block the ping or bubble up to the caller — a
 //   notification should never fail an event/join/cancel request.
 export async function notifyUser({ recipientId, eventId = null, requesterId = null, text, cta = null }) {
-  await query(
-    `INSERT INTO "Ping" (id, "recipientId", "eventId", "requesterId", text, cta, read)
-     VALUES ($1, $2, $3, $4, $5, $6, false)`,
-    [randomUUID(), recipientId, eventId, requesterId, text, cta]
-  );
+  try {
+    await query(
+      `INSERT INTO "Ping" (id, "recipientId", "eventId", "requesterId", text, cta, read)
+       VALUES ($1, $2, $3, $4, $5, $6, false)`,
+      [randomUUID(), recipientId, eventId, requesterId, text, cta]
+    );
+  } catch (err) {
+    // Even the ping write itself must never fail the caller — join/cancel/
+    // event actions already committed their real work by the time we get
+    // here, and the user shouldn't see an error toast (and have to refresh
+    // to discover it actually worked) just because a notification row
+    // couldn't be written.
+    console.error("Ping write failed for", recipientId, err);
+    return;
+  }
 
   if (!FROM_NUMBER) return;
 
