@@ -310,7 +310,7 @@ export function useLoopedApp() {
     go: () => setState({ view: v })
   }));
 
-const pings = S.pingsRaw.map(p => {
+  const pings = S.pingsRaw.map(p => {
     const f = p.who ? friendById(p.who) : null;
     const isFriendRequest = !!p.requesterId;
     return {
@@ -361,7 +361,32 @@ const pings = S.pingsRaw.map(p => {
       }
     };
   });
- 
+
+  // ---------- friend cards, with the circle they're placed in ----------
+  const friendCards = friends().map(f => {
+    const liveActivity = currentActivityFor(f.id);
+    return {
+      ...f,
+      initial: f.first[0].toUpperCase(),
+      circle: f.circle === 'inner' ? 'inner' : 'outer',
+      live: !!liveActivity,
+      // tapping an orb in the ring opens their status card instead of
+      // toggling circle — circle is moved from inside that status card
+      showStatus: () => setState({ statusFriendId: f.id }),
+      toggleCircle: async () => {
+        const next = f.circle === 'inner' ? 'outer' : 'inner';
+        setState(prev => ({
+          friendsRaw: prev.friendsRaw.map(x => (x.id === f.id ? { ...x, circle: next } : x))
+        }));
+        toast(next === 'inner' ? f.name + ' moved to your inner circle 💛' : f.name + ' moved to your outer circle');
+        try { await api.setFriendCircle(f.id, next); }
+        catch (e) {
+          setState(prev => ({ friendsRaw: prev.friendsRaw.map(x => (x.id === f.id ? { ...x, circle: f.circle } : x)) }));
+          toast("couldn't update that — try again 🙏");
+        }
+      }
+    };
+  });
 
   // ---------- status card shown when you tap a friend's orb in the ring ----------
   // Live = hosting or joined something happening right now, whether or not
@@ -797,5 +822,3 @@ const pings = S.pingsRaw.map(p => {
     setState({ contactQuery: '' });
   }
 }
-
-//pls
