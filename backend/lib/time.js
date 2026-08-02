@@ -36,3 +36,14 @@ export function postedAgo(createdAt, now = new Date()) {
   if (days === 1) return "posted yesterday";
   return `posted ${days} days ago`;
 }
+
+// "6:30pm" — used in plain-text ping/SMS bodies (e.g. "time changed to
+// 6:30pm"), where we don't have the frontend's day-labeling helpers around.
+export function formatClock(date) {
+  const d = new Date(date);
+  let h = d.getHours();
+  const m = d.getMinutes();
+  const ampm = h >= 12 ? "pm" : "am";
+  h = h % 12 || 12;
+  return m === 0 ? `${h}${ampm}` : `${h}:${String(m).padStart(2, "0")}${ampm}`;
+}

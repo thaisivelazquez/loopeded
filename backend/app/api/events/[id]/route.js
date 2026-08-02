@@ -6,7 +6,7 @@ import { query } from "../../../../lib/db";
 import { requireCurrentUser } from "../../../../lib/auth";
 import { jsonError, withCors, corsPreflight } from "../../../../lib/format";
 import { notifyUsers } from "../../../../lib/notify";
-import { toBoardFields, fromBoardFields } from "../../../../lib/time";
+import { toBoardFields, fromBoardFields, formatClock } from "../../../../lib/time";
 import { dayLabelFor } from "../../../../lib/dayLabel";
 
 export async function OPTIONS(request) {
@@ -19,7 +19,9 @@ const VALID_VISIBILITY = new Set(["everyone", "inner", "outer"]);
 // Backs the "edit" button on your own posts in <EventDetail /> / <Composer />.
 // Host-only. Accepts the same shape the composer posts on create:
 // { emoji, what, place, note, dayOffset, hour, spots, visibility }.
-// Anyone already joined gets a light heads-up ping that the plan changed.
+// Anyone already joined gets a ping, but only when it's a change they'd
+// actually care about — location, time, or the note — not every edit (e.g.
+// bumping the spot count or tweaking the title doesn't notify anyone).
 export async function PATCH(request, { params }) {
   try {
     const user = await requireCurrentUser(request);
@@ -60,10 +62,28 @@ export async function PATCH(request, { params }) {
     const { rows: joinRows } = await query(`SELECT "userId" FROM "EventJoin" WHERE "eventId" = $1`, [id]);
     const joinedIds = joinRows.map((r) => r.userId);
     if (joinedIds.length) {
-      await notifyUsers(joinedIds, {
-        eventId: id,
-        text: `${user.firstName.toLowerCase()} updated the details for ${what} ${emoji}`
-      });
+      // Only these three count as a "heads up" — a spots/visibility/title
+      // tweak shouldn't ping everyone who's already going.
+      const changes = [];
+      if (place !== existing.location) {
+        changes.push(`moved to ${place}`);
+      }
+      if (new Date(startAt).getTime() !== new Date(existing.startAt).getTime()) {
+        changes.push(`time changed to ${formatClock(startAt)}`);
+      }
+      const noteChanged = (note || null) !== (existing.note || null);
+      if (noteChanged) {
+        if (!existing.note && note) changes.push("added a note");
+        else if (existing.note && !note) changes.push("removed the note");
+        else changes.push("updated the note");
+      }
+
+      if (changes.length) {
+        await notifyUsers(joinedIds, {
+          eventId: id,
+          text: `${user.firstName.toLowerCase()} ${changes.join(", ")} for ${what} ${emoji}`
+        });
+      }
     }
 
     const { hour, dayOffset } = toBoardFields(e.startAt);

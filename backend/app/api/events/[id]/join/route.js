@@ -59,12 +59,33 @@ export async function POST(request, { params }) {
   }
 }
 
-// DELETE /api/events/:id/join — back out quietly
+// DELETE /api/events/:id/join — back out quietly. Still lets the host know,
+// same as joining does, just with a different tone — "back out quietly"
+// describes what it does to the person leaving (no confirmation dance, no
+// guilt-trip modal), not that it happens invisibly to the host.
 export async function DELETE(request, { params }) {
   try {
     const user = await requireCurrentUser(request);
     const { id } = params;
-    await query(`DELETE FROM "EventJoin" WHERE "eventId" = $1 AND "userId" = $2`, [id, user.id]);
+
+    const { rows: eventRows } = await query(`SELECT "hostId", title FROM "Event" WHERE id = $1`, [id]);
+    const event = eventRows[0];
+
+    const { rowCount } = await query(
+      `DELETE FROM "EventJoin" WHERE "eventId" = $1 AND "userId" = $2`,
+      [id, user.id]
+    );
+
+    // Only notify if they were actually in (no-op deletes shouldn't ping
+    // anyone) and they're not the host backing out of their own event.
+    if (event && rowCount > 0 && event.hostId !== user.id) {
+      await notifyUser({
+        recipientId: event.hostId,
+        eventId: id,
+        text: `${user.firstName.toLowerCase()} can't make it to ${event.title} anymore`
+      });
+    }
+
     return withCors(NextResponse.json({ joined: false }));
   } catch (err) {
     return jsonError(err);
