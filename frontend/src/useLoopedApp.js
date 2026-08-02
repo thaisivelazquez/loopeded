@@ -96,6 +96,38 @@ export function useLoopedApp() {
     }
   }
 
+  // ---------- background refresh, so new/updated events from friends show
+  // up on their own instead of requiring a manual page reload ----------
+  // Silent on purpose (no toast on failure) since this runs unattended —
+  // a dropped poll shouldn't interrupt whatever the person is doing. Skips
+  // the merge entirely while the composer is open or a post is mid-submit
+  // so it can never stomp on text someone is actively typing.
+  async function refreshEvents() {
+    try {
+      const events = await api.events();
+      setStateRaw(prev => (prev.composerOpen ? prev : { ...prev, events }));
+    } catch (e) {
+      // ignore — next poll (or the next foreground/visibility refresh) will
+      // pick it up
+    }
+  }
+
+  useEffect(() => {
+    if (!state.onboarded) return;
+    const POLL_MS = 12000;
+    const poll = setInterval(refreshEvents, POLL_MS);
+    function onVisible() {
+      if (document.visibilityState === 'visible') refreshEvents();
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refreshEvents);
+    return () => {
+      clearInterval(poll);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refreshEvents);
+    };
+  }, [state.onboarded]);
+
   // ---------- time & sky ----------
   const now = nowHour(new Date(state.nowTick));
   const mode = state.skyOverride !== 'auto' ? state.skyOverride : modeForHour(now);
@@ -153,7 +185,7 @@ export function useLoopedApp() {
     const whoName = a.isYours ? 'you' : (friendById(a.who) ? friendById(a.who).name : a.who);
     if (a.youIn) {
       patchEvent(a.id, { youIn: false });
-      toast('you let the host know you cant make it');
+      toast('no worries, backed out quietly');
       try { await api.leaveEvent(a.id); } catch (e) { patchEvent(a.id, { youIn: true }); }
       return;
     }
