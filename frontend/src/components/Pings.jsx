@@ -28,13 +28,10 @@ export default function Pings({ pings, accent }) {
             {ping.going && (
               <div style={{ marginLeft: ping.hasAction ? 0 : 'auto', background: '#3a2c28', color: '#ffe9c2', font: '800 11.5px Nunito,sans-serif', padding: '8px 14px', borderRadius: 999, flex: 'none' }}>going ✓</div>
             )}
-            {ping.unread && (
-              <div style={{ marginLeft: (ping.hasAction || ping.going || ping.isFriendRequest) ? 0 : 'auto', width: 8, height: 8, borderRadius: '50%', background: accent, flex: 'none' }} />
-            )}
             <button
               onClick={ping.del}
               title="delete notification"
-              style={{ marginLeft: (ping.hasAction || ping.going || ping.unread || ping.isFriendRequest) ? 4 : 'auto', cursor: 'pointer', border: 'none', background: 'rgba(58,44,40,.08)', color: 'rgba(58,44,40,.6)', font: '800 12px Nunito,sans-serif', width: 26, height: 26, borderRadius: '50%', flex: 'none' }}
+              style={{ marginLeft: (ping.hasAction || ping.going || ping.isFriendRequest) ? 4 : 'auto', cursor: 'pointer', border: 'none', background: 'rgba(58,44,40,.08)', color: 'rgba(58,44,40,.6)', font: '800 12px Nunito,sans-serif', width: 26, height: 26, borderRadius: '50%', flex: 'none' }}
             >✕</button>
           </div>
         ))}
