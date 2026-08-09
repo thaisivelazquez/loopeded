@@ -97,16 +97,21 @@ export function useLoopedApp() {
     }
   }
 
-  // ---------- background refresh, so new/updated events from friends show
-  // up on their own instead of requiring a manual page reload ----------
+  // ---------- background refresh, so new/updated events, friends, and
+  // pings show up on their own instead of requiring a manual page reload
+  // ----------
   // Silent on purpose (no toast on failure) since this runs unattended —
   // a dropped poll shouldn't interrupt whatever the person is doing. Skips
   // the merge entirely while the composer is open or a post is mid-submit
   // so it can never stomp on text someone is actively typing.
   async function refreshEvents() {
     try {
-      const events = await api.events();
-      setStateRaw(prev => (prev.composerOpen ? prev : { ...prev, events }));
+      const [events, friendsRaw, pingsRaw] = await Promise.all([
+        api.events(),
+        api.friends(),
+        api.pings()
+      ]);
+      setStateRaw(prev => (prev.composerOpen ? prev : { ...prev, events, friendsRaw, pingsRaw }));
     } catch (e) {
       // ignore — next poll (or the next foreground/visibility refresh) will
       // pick it up
@@ -475,7 +480,9 @@ export function useLoopedApp() {
     const added = S.obAdded.includes(f.id);
     return {
       id: f.id, name: fmtName(f.first, f.last), bio: f.bio, color: f.color, initial: f.first[0].toUpperCase(),
-      btnLabel: added ? 'added ✓' : '+ add',
+      // Requesting, not adding — they only become a friend once they accept,
+      // so the button reflects a pending ask rather than a done deal.
+      btnLabel: added ? 'requested ✓' : '+ add',
       btnBg: added ? '#3a2c28' : 'rgba(58,44,40,.08)',
       btnColor: added ? '#ffe9c2' : '#3a2c28',
       toggle: async () => {

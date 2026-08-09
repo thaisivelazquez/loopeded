@@ -41,5 +41,7 @@ export default function Pings({ pings, accent }) {
 }
 
 // refresh to see an update: 
-// friends page refresh
 // pings for when someone joins not working 
+// refresh issues when we add friends
+// the way we add people
+// fridns and pings no live

@@ -6,16 +6,18 @@ import { randomUUID } from "crypto";
 import { query } from "../../../../lib/db";
 import { requireCurrentUser } from "../../../../lib/auth";
 import { jsonError, withCors, corsPreflight } from "../../../../lib/format";
+import { notifyUser } from "../../../../lib/notify";
 
 export async function OPTIONS() {
   return corsPreflight();
 }
 
 // POST /api/friends/:id — "add" a suggested user from onboarding.
-// Unlike POST /api/friends (phone invite, stays 'pending'), this is a
-// direct mutual add: the mock UI has no accept/reject step anywhere, so
-// treating it as instantly 'accepted' matches what the frontend expects
-// to see, rather than silently creating an invisible pending request.
+// Same request/accept flow as the phone-invite path (POST /api/friends):
+// this sends a pending request, it does NOT make you friends on the spot.
+// The other person has to actually hit "accept" on the resulting ping
+// before either of you show up in each other's friends list — nobody
+// should end up someone's friend without agreeing to it.
 export async function POST(request, { params }) {
   try {
     const user = await requireCurrentUser(request);
@@ -25,14 +27,27 @@ export async function POST(request, { params }) {
     }
 
     const [userAId, userBId] = [user.id, id].sort();
-    await query(
+    const { rows: friendshipRows } = await query(
       `INSERT INTO "Friendship" (id, "userAId", "userBId", status)
-       VALUES ($1, $2, $3, 'accepted')
-       ON CONFLICT ("userAId", "userBId") DO UPDATE SET status = 'accepted'`,
+       VALUES ($1, $2, $3, 'pending')
+       ON CONFLICT ("userAId", "userBId") DO NOTHING
+       RETURNING id`,
       [randomUUID(), userAId, userBId]
     );
 
-    return withCors(NextResponse.json({ added: true }));
+    // Only ping on a brand-new request — ON CONFLICT DO NOTHING means no
+    // row comes back if you two already have a pending or accepted
+    // Friendship, so this won't spam a repeat "add" tap.
+    if (friendshipRows[0]) {
+      await notifyUser({
+        recipientId: id,
+        requesterId: user.id,
+        text: `${user.firstName} wants to be friends`,
+        cta: "accept"
+      });
+    }
+
+    return withCors(NextResponse.json({ requested: true }));
   } catch (err) {
     return jsonError(err);
   }
