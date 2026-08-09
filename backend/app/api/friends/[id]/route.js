@@ -85,13 +85,40 @@ export async function PATCH(request, { params }) {
   }
 }
 
-// DELETE /api/friends/:id — unadd (used by the toggle in onboarding step 2).
+// DELETE /api/friends/:id — unfriend (also used to cancel a pending request).
+// A Friendship row is a single record shared by both people, so deleting it
+// already ends the friendship for both sides at once — there's no separate
+// "their side" left dangling. But being unfriended should mean fully
+// disentangled, not just delisted, so this also:
+//   - pulls each of you out of any event the other is hosting (an ex-friend
+//     shouldn't linger on your guest list, or you on theirs)
+//   - clears pings between you: the friend-request ping itself, plus any
+//     event notifications tied to events either of you hosts, so nothing
+//     from this friendship keeps surfacing after it's over
 export async function DELETE(request, { params }) {
   try {
     const user = await requireCurrentUser(request);
     const { id } = params;
     const [userAId, userBId] = [user.id, id].sort();
+
+    await query(
+      `DELETE FROM "EventJoin"
+        WHERE ("userId" = $1 AND "eventId" IN (SELECT id FROM "Event" WHERE "hostId" = $2))
+           OR ("userId" = $2 AND "eventId" IN (SELECT id FROM "Event" WHERE "hostId" = $1))`,
+      [user.id, id]
+    );
+
+    await query(
+      `DELETE FROM "Ping"
+        WHERE ("recipientId" = $1 AND "requesterId" = $2)
+           OR ("recipientId" = $2 AND "requesterId" = $1)
+           OR ("recipientId" = $1 AND "eventId" IN (SELECT id FROM "Event" WHERE "hostId" = $2))
+           OR ("recipientId" = $2 AND "eventId" IN (SELECT id FROM "Event" WHERE "hostId" = $1))`,
+      [user.id, id]
+    );
+
     await query(`DELETE FROM "Friendship" WHERE "userAId" = $1 AND "userBId" = $2`, [userAId, userBId]);
+
     return withCors(NextResponse.json({ added: false }));
   } catch (err) {
     return jsonError(err);

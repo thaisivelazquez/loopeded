@@ -466,10 +466,13 @@ export function useLoopedApp() {
           confirmRemoveId: null
         }));
         toast(removedName + ' removed from your friends');
-        api.removeFriend(id).catch(async () => {
-          toast("couldn't remove that friend — try again 🙏");
-          await loadBoard();
-        });
+        api.removeFriend(id)
+          .then(() => loadBoard()) // pulls the fresh events/pings once their
+          // EventJoins and pings tied to this friendship are gone server-side
+          .catch(async () => {
+            toast("couldn't remove that friend — try again 🙏");
+            await loadBoard();
+          });
       },
       close: () => setState({ statusFriendId: null, confirmRemoveId: null })
     };
