@@ -39,3 +39,8 @@ export default function Pings({ pings, accent }) {
     </div>
   );
 }
+
+// refresh to see an update: 
+// friends page refresh
+// homepage
+// pings for when someone joins not working 

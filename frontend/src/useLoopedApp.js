@@ -183,7 +183,7 @@ export function useLoopedApp() {
   }
 
   async function toggleJoin(a) {
-    const whoName = a.isYours ? 'you' : (friendById(a.who) ? friendById(a.who).name : a.who);
+    const whoName = a.isYours ? name : (friendById(a.who) ? friendById(a.who).name : a.who);
     if (a.youIn) {
       patchEvent(a.id, { youIn: false });
       toast('no worries, backed out quietly');
@@ -233,7 +233,7 @@ export function useLoopedApp() {
     const youIn = !!a.youIn;
     const joinedCount = a.joined.length + (youIn ? 1 : 0);
     const fr = friendById(a.who);
-    const whoName = a.isYours ? 'you' : (fr ? fr.name : a.who);
+    const whoName = a.isYours ? name : (fr ? fr.name : a.who);
     const wrapped = st === 'wrapped';
     const spotsLeft = a.spots ? a.spots - joinedCount : 0;
     const full = !!a.spots && spotsLeft <= 0 && !youIn;
@@ -322,7 +322,7 @@ export function useLoopedApp() {
     return {
       id: a.id,
       title: a.what + ' ' + a.emoji,
-      meta: (a.isYours ? 'you' : (fr ? fr.name : a.who)) + ' · ' + a.day + ' ' + fmtTime(a.hour) + ' · 📍 ' + a.place,
+      meta: (a.isYours ? name : (fr ? fr.name : a.who)) + ' · ' + a.day + ' ' + fmtTime(a.hour) + ' · 📍 ' + a.place,
       note: a.note,
       color: a.isYours ? '#ffb37e' : (fr ? fr.color : '#ccc'),
       initial: (a.isYours ? name : (fr ? fr.first : a.who))[0].toUpperCase(),
@@ -658,13 +658,16 @@ export function useLoopedApp() {
   if (detailActivity) {
     const a = detailActivity;
     const fr = friendById(a.who);
-    const whoName = a.isYours ? 'you' : (fr ? fr.name : a.who);
+    const whoName = a.isYours ? name : (fr ? fr.name : a.who);
     const youIn = !!a.youIn;
     const joinedIds = a.joined || [];
     const joinedCount = joinedIds.length + (youIn ? 1 : 0);
     const spotsLeft = a.spots ? a.spots - joinedCount : 0;
-    const goingNames = joinedIds.map(j => { const f = friendById(j); return f ? f.name : j; });
-    if (youIn) goingNames.push('you');
+    const goingNames = joinedIds.map(j => {
+      const f = friendById(j);
+      return { name: f ? f.name : j, isYou: false, color: f ? f.color : 'rgba(58,44,40,.2)' };
+    });
+    if (youIn) goingNames.push({ name, isYou: true, color: '#ffb37e' });
     const timeRange = (a.day ? a.day + ' · ' : 'today, ') + fmtTime(a.hour) + ' – ' + fmtTime(a.hour + (a.dur || 1.5));
     const full = a.spots && spotsLeft <= 0 && !youIn;
 
@@ -679,7 +682,7 @@ export function useLoopedApp() {
 
     detail = {
       color: a.isYours ? '#ffb37e' : (fr ? fr.color : '#ccc'),
-      initial: (whoName === 'you' ? name : whoName)[0].toUpperCase(),
+      initial: whoName[0].toUpperCase(),
       who: whoName,
       whoUpper: whoName.toUpperCase(),
       postedAgo: a.postedAgo || 'posted just now',
@@ -689,15 +692,12 @@ export function useLoopedApp() {
       place: a.place,
       timeRange,
       mapEmbedUrl,
-      avatars: (goingNames.length ? goingNames : ['?']).slice(0, 4).map((n, i) => {
-        const f = friends().find(x => x.name === n);
-        return {
-          color: n === 'you' ? '#ffb37e' : (f ? f.color : 'rgba(58,44,40,.2)'),
-          initial: n === '?' ? '·' : n[0].toUpperCase(),
-          ml: i === 0 ? '0' : '-8px'
-        };
-      }),
-      goingNames: goingNames.length ? goingNames.join(', ') : 'no one yet — be the first 👀',
+      avatars: (goingNames.length ? goingNames : [{ name: '?', isYou: false, color: 'rgba(58,44,40,.2)' }]).slice(0, 4).map((g, i) => ({
+        color: g.isYou ? '#ffb37e' : g.color,
+        initial: g.name === '?' ? '·' : g.name[0].toUpperCase(),
+        ml: i === 0 ? '0' : '-8px'
+      })),
+      goingNames: goingNames.length ? goingNames.map(g => g.name).join(', ') : 'no one yet — be the first 👀',
       spotsLine: a.spots ? (spotsLeft > 0 ? spotsLeft + (spotsLeft === 1 ? ' spot open' : ' spots open') : 'full house') : 'open to everyone',
       distance: a.dist || 'distance unknown',
       showJoin: !a.isYours,
@@ -768,7 +768,10 @@ export function useLoopedApp() {
       friendsList: obFriendsList,
       dots: obDots,
       finish: async () => {
-        setState({ onboarded: true, view: 'today' });
+        setState({
+          onboarded: true, view: 'today',
+          name: S.obFirst.trim(), last: S.obLast.trim()
+        });
         toast('welcome to looped 💛 here\'s today');
         await loadBoard();
       }
