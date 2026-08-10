@@ -24,9 +24,9 @@ export default function Composer({ composer, accent }) {
     <div onClick={composer.close} className="looped-modal-overlay" style={{ background: 'rgba(58,44,40,.25)', backdropFilter: 'blur(3px)', zIndex: 55 }}>
       <div onClick={(e) => e.stopPropagation()} className="looped-modal" style={{ background: 'rgba(255,251,246,.92)', border: '1px solid rgba(255,255,255,.9)', backdropFilter: 'blur(20px)', borderRadius: 22, animation: 'loopPop .35s ease' }}>
         <div style={{ font: '800 21px Nunito,sans-serif' }}>{composer.editing ? 'edit your plans' : 'what are you up to?'}</div>
-        <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'nowrap' }}>
+        <div className="looped-emoji-row" style={{ marginTop: 14 }}>
           {composer.emojiChips.map((em, i) => (
-            <button key={i} onClick={em.pick} style={{ flex: 1, minWidth: 0, cursor: 'pointer', border: '1.5px solid ' + em.border, background: em.bg, fontSize: 16, padding: '7px 0', borderRadius: 10 }}>{em.char}</button>
+            <button key={i} onClick={em.pick} style={{ cursor: 'pointer', border: '1.5px solid ' + em.border, background: em.bg, fontSize: 16, padding: '7px 0', borderRadius: 10 }}>{em.char}</button>
           ))}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>

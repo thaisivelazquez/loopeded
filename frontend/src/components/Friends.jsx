@@ -174,11 +174,11 @@ export default function Friends({ friends, accent }) {
       <div style={{ font: '800 32px Nunito,sans-serif' }}>your people</div>
       <div style={{ font: '14px Karla,sans-serif', color: 'rgba(58,44,40,.6)', marginTop: 5 }}>{friends.countLine}</div>
       <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
-<div style={{ display: 'flex', gap: 10 }}>
+<div className="looped-invite-row">
   <div
+    className="looped-invite-input"
     style={{
       display: 'flex',
-      flex: 1,
       border: '1px solid rgba(58,44,40,.2)',
       background: 'rgba(255,255,255,.6)',
       borderRadius: 999,
@@ -223,6 +223,7 @@ export default function Friends({ friends, accent }) {
       placeholder="phone number…"
       style={{
         flex: 1,
+        minWidth: 0,
         border: 'none',
         background: 'transparent',
         padding: '12px 14px',
@@ -234,6 +235,7 @@ export default function Friends({ friends, accent }) {
   </div>
 
   <button
+    className="looped-invite-btn"
     onClick={friends.sendInvite}
     style={{
       cursor: 'pointer',
@@ -250,13 +252,14 @@ export default function Friends({ friends, accent }) {
 </div>
         {friends.contactsLinked ? (
           <>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div className="looped-invite-row">
               <input
+                className="looped-invite-input"
                 value={friends.contactQuery} onChange={friends.setContactQuery} onKeyDown={friends.searchKeyDown}
                 placeholder="search your contacts by name…"
-                style={{ flex: 1, border: '1px solid rgba(58,44,40,.2)', background: 'rgba(255,255,255,.6)', borderRadius: 999, padding: '12px 18px', font: '600 14px Karla,sans-serif', color: '#3a2c28' }}
+                style={{ minWidth: 0, border: '1px solid rgba(58,44,40,.2)', background: 'rgba(255,255,255,.6)', borderRadius: 999, padding: '12px 18px', font: '600 14px Karla,sans-serif', color: '#3a2c28' }}
               />
-              <button onClick={friends.searchContacts} style={{ cursor: 'pointer', border: '1.5px solid rgba(58,44,40,.25)', background: 'none', color: '#3a2c28', font: '800 13.5px Nunito,sans-serif', padding: '12px 20px', borderRadius: 999 }}>search</button>
+              <button className="looped-invite-btn" onClick={friends.searchContacts} style={{ cursor: 'pointer', border: '1.5px solid rgba(58,44,40,.25)', background: 'none', color: '#3a2c28', font: '800 13.5px Nunito,sans-serif', padding: '12px 20px', borderRadius: 999 }}>search</button>
             </div>
             <div style={{ font: '600 12px Karla,sans-serif', color: 'rgba(58,44,40,.5)' }}>📇 contacts linked — search by name is on</div>
           </>

@@ -46,10 +46,19 @@ img {
   align-items: center;
   overflow-x: auto;
   scrollbar-width: none;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .looped-navbar-tabs::-webkit-scrollbar { display: none; }
 @media (max-width: 640px) {
   .looped-navbar-tabs { gap: 14px; }
+}
+
+.looped-navbar-logo {
+  font-size: 24px;
+}
+@media (max-width: 420px) {
+  .looped-navbar-logo { font-size: 20px; }
 }
 
 .looped-navbar-clock {
@@ -125,6 +134,37 @@ img {
 }
 @media (max-width: 480px) {
   .looped-onboarding-card { padding: 28px 22px; }
+}
+
+.looped-invite-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.looped-invite-input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.looped-invite-btn {
+  flex: 0 0 auto;
+}
+@media (max-width: 420px) {
+  .looped-invite-row { flex-direction: column; }
+  .looped-invite-input { flex-basis: auto; }
+  .looped-invite-btn { width: 100%; }
+}
+.looped-emoji-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+.looped-emoji-row > button {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 380px) {
+  .looped-emoji-row { flex-wrap: wrap; }
+  .looped-emoji-row > button { flex: 1 1 18%; }
 }
 
 /* friends ring: scales as a unit via CSS var so the absolute-positioned
