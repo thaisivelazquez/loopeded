@@ -256,7 +256,7 @@ export default function Friends({ friends, accent }) {
         >
           🔗 copy invite link
         </button>
-        <div style={{ font: '600 12px Karla,sans-serif', color: 'rgba(58,44,40,.5)' }}>share it with friends who aren't on looped yet so they can sign up</div>
+        <div style={{ font: '600 12px Karla,sans-serif', color: 'rgba(58,44,40,.5)' }}>share looped with friends who haven't joined yet</div>
       </div>
 
       <FriendsRing you={friends.you} friends={friends.cards} accent={accent} />
