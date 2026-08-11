@@ -51,8 +51,16 @@ async function request(path, options = {}) {
 export const api = {
   sendVerificationCode: (phone) =>
     request('/api/verify/send', { method: 'POST', body: JSON.stringify({ phone }) }),
-  checkVerificationCode: (phone, code) =>
-    request('/api/verify/check', { method: 'POST', body: JSON.stringify({ phone, code }) }),
+  // For a returning user, the backend logs them in as part of this same
+  // check (sets the session cookie) and hands back their userId — mirror
+  // that here by also storing it as the bearer-token fallback, same as
+  // signup() does, so the mobile cross-site-cookie gap doesn't leave them
+  // half-logged-in.
+  checkVerificationCode: async (phone, code) => {
+    const body = await request('/api/verify/check', { method: 'POST', body: JSON.stringify({ phone, code }) });
+    if (body?.accountExists && body?.userId) setToken(body.userId);
+    return body;
+  },
 
   signup: async (firstName, lastName, phone) => {
     const body = await request('/api/signup', { method: 'POST', body: JSON.stringify({ firstName, lastName, phone }) });

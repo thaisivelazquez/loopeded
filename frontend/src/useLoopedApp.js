@@ -21,9 +21,10 @@ function initialState() {
     view: 'loading', // 'loading' | 'onboarding' | 'today' | 'friends' | 'pings' | 'you'
     name: '', last: '', phone: '', bio: '',
     onboarded: false,
-    obStep: 1, // 1 = name+phone, 2 = verify code, 3 = suggested friends
+    obStep: 1, // 1 = phone number, 2 = verify code, 3 = name (new accounts only), 4 = suggested friends
     obFirst: '', obLast: '', obPhone: '', obCountry: '+1',
     obCode: '', codeError: '', sendingCode: false, verifying: false, resendCooldown: 0, resending: false,
+    creatingAccount: false,
     obSuggested: [], obAdded: [],
     friendsRaw: [],
     events: [],
@@ -73,15 +74,22 @@ export function useLoopedApp() {
   }
 
   // ---------- load session on mount + live clock ----------
+  // Shared by: (a) opening the app with an existing session, and (b) a
+  // returning user completing phone verification during onboarding — both
+  // just need "we know who's signed in now, go load their board."
+  async function enterApp() {
+    const me = await api.me();
+    setState({
+      name: me.firstName, last: me.lastName || '', phone: me.phone || '', bio: me.bio || '',
+      onboarded: true, view: 'today'
+    });
+    await loadBoard();
+  }
+
   useEffect(() => {
     (async () => {
       try {
-        const me = await api.me();
-        setState({
-          name: me.firstName, last: me.lastName || '', phone: me.phone || '', bio: me.bio || '',
-          onboarded: true, view: 'today'
-        });
-        await loadBoard();
+        await enterApp();
       } catch (e) {
         // Not signed in (no/invalid session cookie) — show onboarding.
         setState({ view: 'onboarding' });
@@ -500,7 +508,7 @@ export function useLoopedApp() {
       }
     };
   });
-  const obDots = [1, 2, 3].map(n => ({ bg: n === S.obStep ? '#3a2c28' : 'rgba(58,44,40,.2)' }));
+  const obDots = [1, 2, 3, 4].map(n => ({ bg: n === S.obStep ? '#3a2c28' : 'rgba(58,44,40,.2)' }));
 
   // Combines the selected country code with the digits typed in the phone
   // field into a proper E.164 number (e.g. "+1" + "(347) 544-8544" ->
@@ -510,9 +518,11 @@ export function useLoopedApp() {
     return S.obCountry + digits;
   }
 
-  // Step 1 -> sends the SMS code via Twilio Verify, then moves to step 2.
+  // Step 1 (phone number only) -> sends the SMS code via Twilio Verify,
+  // then moves to step 2. No name involved yet — we don't know if this
+  // number is a returning user or a brand new one until the code checks
+  // out.
   async function obNextFn() {
-    if (!S.obFirst.trim()) { toast('tell us your first name 🙂'); return; }
     const digits = S.obPhone.replace(/\D/g, '');
     if (digits.length < 6) { toast('add a valid phone number 📱'); return; }
     setState({ sendingCode: true });
@@ -527,23 +537,46 @@ export function useLoopedApp() {
     }
   }
 
-  // Step 2 -> checks the code with Twilio, and only THEN creates the
-  // account (POST /api/signup, which is now gated behind verification).
+  // Step 2 (verify code) -> checks the code with Twilio, then branches:
+  //   - returning number: the check itself already logged them in
+  //     (backend set the session cookie), so just load their app and skip
+  //     straight past the name/suggested-friends steps entirely
+  //   - brand new number: move on to step 3, where a name gets collected
+  //     and the account actually gets created
   async function verifyCodeFn() {
     const code = S.obCode.trim();
     if (code.length !== 6) { setState({ codeError: 'enter the 6-digit code' }); return; }
     setState({ verifying: true, codeError: '' });
     try {
-      const { approved } = await api.checkVerificationCode(fullPhone(), code);
-      if (!approved) {
+      const result = await api.checkVerificationCode(fullPhone(), code);
+      if (!result.approved) {
         setState({ verifying: false, codeError: "that code didn't match — try again" });
         return;
       }
-      await api.signup(S.obFirst.trim(), S.obLast.trim(), fullPhone());
-      const obSuggested = await api.discoverUsers();
-      setState({ obSuggested, obStep: 3, verifying: false });
+      if (result.accountExists) {
+        await enterApp();
+        toast(`welcome back, ${result.firstName} 👋`);
+        return;
+      }
+      setState({ obStep: 3, verifying: false });
     } catch (e) {
       setState({ verifying: false, codeError: e.message || 'something went wrong — try again' });
+    }
+  }
+
+  // Step 3 (name — new accounts only) -> this is what actually creates the
+  // account, now that we have a name to create it with (POST /api/signup,
+  // still gated behind the verification that already happened in step 2).
+  async function obCreateAccountFn() {
+    if (!S.obFirst.trim()) { toast('tell us your first name 🙂'); return; }
+    setState({ creatingAccount: true });
+    try {
+      await api.signup(S.obFirst.trim(), S.obLast.trim(), fullPhone());
+      const obSuggested = await api.discoverUsers();
+      setState({ obSuggested, obStep: 4, creatingAccount: false });
+    } catch (e) {
+      setState({ creatingAccount: false });
+      toast(e.message || "couldn't create your account — try again 🙏");
     }
   }
 
@@ -754,6 +787,7 @@ export function useLoopedApp() {
       step1: S.obStep === 1,
       stepVerify: S.obStep === 2,
       step3: S.obStep === 3,
+      step4: S.obStep === 4,
       obFirst: S.obFirst, obLast: S.obLast, obPhone: S.obPhone,
       obCountry: S.obCountry,
       setObCountry: (e) => setState({ obCountry: e.target.value }),
@@ -764,7 +798,7 @@ export function useLoopedApp() {
       setObFirst: (e) => setState({ obFirst: e.target.value }),
       setObLast: (e) => setState({ obLast: e.target.value }),
       setObPhone: (e) => setState({ obPhone: e.target.value }),
-      nameKeyDown: (e) => { if (e.key === 'Enter') obNextFn(); },
+      phoneKeyDown: (e) => { if (e.key === 'Enter') obNextFn(); },
       next: obNextFn,
       sendingCode: S.sendingCode,
 
@@ -777,6 +811,10 @@ export function useLoopedApp() {
       resend: resendCodeFn,
       resendCooldown: S.resendCooldown,
       resending: S.resending,
+
+      nameKeyDown: (e) => { if (e.key === 'Enter') obCreateAccountFn(); },
+      createAccount: obCreateAccountFn,
+      creatingAccount: S.creatingAccount,
 
       friendsList: obFriendsList,
       dots: obDots,

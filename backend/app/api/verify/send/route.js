@@ -7,8 +7,8 @@ export async function OPTIONS(request) {
 }
 
 // POST /api/verify/send   body: { phone: string }
-// Fires right after step 1 (name + phone) in onboarding, before the account
-// is actually created. Twilio Verify handles the code generation, storage,
+// Fires right after step 1 (phone number) in onboarding, before any
+// account exists. Twilio Verify handles the code generation, storage,
 // expiry (10 min default), and rate limiting for you — nothing is stored in
 // our own DB for this step.
 export async function POST(request) {
