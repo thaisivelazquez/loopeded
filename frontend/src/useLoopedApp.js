@@ -915,27 +915,46 @@ export function useLoopedApp() {
   }
   const INVITE_LINK = 'https://looped.up.railway.app/';
 
+  // Copying is surprisingly unreliable across mobile browsers/WebViews, so
+  // this tries three tiers in order and only reports failure if every one
+  // of them didn't work:
+  //   1. the modern async clipboard API
+  //   2. the legacy execCommand('copy') trick (works in places the async
+  //      API is blocked, e.g. some in-app browsers/WebViews/iframes)
+  //   3. a prompt() with the link pre-selected, so it can always be copied
+  //      by hand even if the browser blocks programmatic clipboard access
+  //      entirely
   async function copyInviteLink() {
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(INVITE_LINK);
-      } else {
-        // Fallback for browsers without the async clipboard API (or a
-        // non-https context, where it's unavailable entirely) — a hidden
-        // textarea + the old execCommand copy still works everywhere.
-        const ta = document.createElement('textarea');
-        ta.value = INVITE_LINK;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.focus();
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
+        toast('invite link copied 🔗');
+        return;
       }
-      toast('invite link copied 🔗');
     } catch (e) {
-      toast("couldn't copy the link — try again 🙏");
+      // fall through to the legacy method below rather than giving up
     }
+
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = INVITE_LINK;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) {
+        toast('invite link copied 🔗');
+        return;
+      }
+    } catch (e) {
+      // fall through to the manual fallback below
+    }
+
+    // Last resort — every programmatic method got blocked, so hand the
+    // link to them directly instead of just failing.
+    window.prompt('copy this invite link:', INVITE_LINK);
   }
 }
