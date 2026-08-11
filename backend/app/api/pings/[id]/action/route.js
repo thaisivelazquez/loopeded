@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { query } from "../../../../../lib/db";
 import { requireCurrentUser } from "../../../../../lib/auth";
 import { jsonError, withCors, corsPreflight } from "../../../../../lib/format";
+import { notifyUser } from "../../../../../lib/notify";
 
 export async function OPTIONS(request) {
   return corsPreflight(request);
@@ -57,6 +58,16 @@ export async function POST(request, { params }) {
         [userAId, userBId]
       );
       await query(`UPDATE "Ping" SET read = true WHERE id = $1`, [id]);
+
+      // Let the original requester know their request went through — this
+      // is the "changing state of notification" half of the friend-request
+      // flow: they get a fresh ping since their original "wants to be
+      // friends" ping had no cta pointed back at them.
+      await notifyUser({
+        recipientId: ping.requesterId,
+        text: `${user.firstName.toLowerCase()} accepted your friend request`
+      });
+
       return withCors(NextResponse.json({ ok: true, accepted: true }));
     }
 
