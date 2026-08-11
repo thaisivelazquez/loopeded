@@ -117,13 +117,19 @@ img {
 
 .looped-onboarding-overlay {
   min-height: 100vh;
+  min-height: 100dvh; /* accounts for mobile browser chrome (address bar,
+    home indicator) so the card isn't sized against a viewport taller than
+    what's actually visible */
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 40px;
+  overflow-y: auto; /* lets the page scroll to the submit button when the
+    on-screen keyboard eats into the visible height, instead of trapping
+    it below the fold with no way to reach it */
 }
 @media (max-width: 560px) {
-  .looped-onboarding-overlay { padding: 16px; }
+  .looped-onboarding-overlay { padding: 16px; align-items: flex-start; }
 }
 
 .looped-onboarding-card {
@@ -132,8 +138,28 @@ img {
   box-sizing: border-box;
   padding: 44px 48px;
 }
+@media (max-width: 560px) {
+  .looped-onboarding-card { margin: 24px 0; }
+}
 @media (max-width: 480px) {
   .looped-onboarding-card { padding: 28px 22px; }
+}
+
+.looped-onboarding-input,
+.looped-onboarding-select {
+  font-size: 16px !important; /* below 16px, iOS Safari auto-zooms the
+    whole page on focus — jarring mid-signup, and it doesn't zoom back
+    out on blur half the time */
+}
+
+.looped-onboarding-phone-row {
+  display: flex;
+  gap: 8px;
+}
+@media (max-width: 360px) {
+  .looped-onboarding-phone-row { flex-wrap: wrap; }
+  .looped-onboarding-phone-row > select { flex-basis: 100% !important; }
+  .looped-onboarding-phone-row > input { flex-basis: 100% !important; }
 }
 
 .looped-invite-row {

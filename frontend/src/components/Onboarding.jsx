@@ -14,11 +14,19 @@ export default function Onboarding({ ob, accent }) {
             <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ font: '700 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.6)' }}>first name</label>
-                <input value={ob.obFirst} onChange={ob.setObFirst} placeholder="jane" style={inputStyle} />
+                <input
+                  value={ob.obFirst} onChange={ob.setObFirst} placeholder="jane"
+                  className="looped-onboarding-input" style={inputStyle}
+                  autoComplete="given-name" autoCapitalize="words" autoFocus
+                />
               </div>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ font: '700 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.6)' }}>last name</label>
-                <input value={ob.obLast} onChange={ob.setObLast} placeholder="doe" style={inputStyle} />
+                <input
+                  value={ob.obLast} onChange={ob.setObLast} placeholder="doe"
+                  className="looped-onboarding-input" style={inputStyle}
+                  autoComplete="family-name" autoCapitalize="words"
+                />
               </div>
             </div>
             {ob.hasName && (
@@ -28,9 +36,10 @@ export default function Onboarding({ ob, accent }) {
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 2 }}>
               <label style={{ font: '700 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.6)' }}>phone number</label>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div className="looped-onboarding-phone-row">
                 <select
                   value={ob.obCountry} onChange={ob.setObCountry}
+                  className="looped-onboarding-select"
                   style={{ ...inputStyle, flex: '0 0 118px', cursor: 'pointer' }}
                 >
                   {ob.countryOptions.map(c => (
@@ -39,7 +48,8 @@ export default function Onboarding({ ob, accent }) {
                 </select>
                 <input
                   value={ob.obPhone} onChange={ob.setObPhone} onKeyDown={ob.nameKeyDown}
-                  inputMode="tel" placeholder="(555) 123-4567" style={{ ...inputStyle, flex: 1 }}
+                  inputMode="tel" autoComplete="tel" placeholder="(555) 123-4567"
+                  className="looped-onboarding-input" style={{ ...inputStyle, flex: 1 }}
                 />
               </div>
               <div style={{ font: '12px Karla,sans-serif', color: 'rgba(58,44,40,.5)' }}>friends can add you by number. we'll never post it.</div>
@@ -60,7 +70,8 @@ export default function Onboarding({ ob, accent }) {
               <label style={{ font: '700 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.6)' }}>verification code</label>
               <input
                 value={ob.obCode} onChange={ob.setObCode} onKeyDown={ob.codeKeyDown}
-                inputMode="numeric" maxLength={6} placeholder="123456"
+                inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="123456"
+                className="looped-onboarding-input" autoFocus
                 style={{ ...inputStyle, letterSpacing: '6px', font: '700 20px Karla,sans-serif', textAlign: 'center' }}
               />
               {ob.codeError && (
@@ -87,11 +98,11 @@ export default function Onboarding({ ob, accent }) {
               {ob.friendsList.map(fr => (
                 <div key={fr.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,.55)', borderRadius: 14, padding: '10px 14px' }}>
                   <div style={{ width: 34, height: 34, borderRadius: '50%', background: fr.color, display: 'grid', placeItems: 'center', font: '800 13px Nunito,sans-serif', color: '#fff', flex: 'none' }}>{fr.initial}</div>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ font: '800 14px Nunito,sans-serif' }}>{fr.name}</div>
-                    <div style={{ font: '12px Karla,sans-serif', color: 'rgba(58,44,40,.55)' }}>{fr.bio}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                    <div style={{ font: '800 14px Nunito,sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fr.name}</div>
+                    <div style={{ font: '12px Karla,sans-serif', color: 'rgba(58,44,40,.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fr.bio}</div>
                   </div>
-                  <button onClick={fr.toggle} style={{ marginLeft: 'auto', cursor: 'pointer', border: 'none', background: fr.btnBg, color: fr.btnColor, font: '800 12px Nunito,sans-serif', padding: '8px 15px', borderRadius: 999 }}>{fr.btnLabel}</button>
+                  <button onClick={fr.toggle} style={{ marginLeft: 'auto', flex: 'none', cursor: 'pointer', border: 'none', background: fr.btnBg, color: fr.btnColor, font: '800 12px Nunito,sans-serif', padding: '8px 15px', borderRadius: 999 }}>{fr.btnLabel}</button>
                 </div>
               ))}
             </div>
