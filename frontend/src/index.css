@@ -150,16 +150,27 @@ img {
   font-size: 16px !important; /* below 16px, iOS Safari auto-zooms the
     whole page on focus — jarring mid-signup, and it doesn't zoom back
     out on blur half the time */
+  min-width: 0; /* flex items don't shrink below their content's natural
+    min-width by default, and text inputs/selects have a non-trivial one —
+    without this, a row of them refuses to shrink to fit a narrow phone
+    and forces the whole page to scroll horizontally instead */
 }
 
-.looped-onboarding-phone-row {
+.looped-onboarding-phone-row,
+.looped-onboarding-name-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+}
+.looped-onboarding-name-row > div {
+  min-width: 0; /* same shrink issue as above, one level up: these wrap a
+    label+input pair, so the min-width has to be overridden on the
+    wrapper, not just the input inside it */
 }
 @media (max-width: 360px) {
   .looped-onboarding-phone-row { flex-wrap: wrap; }
   .looped-onboarding-phone-row > select { flex-basis: 100% !important; }
   .looped-onboarding-phone-row > input { flex-basis: 100% !important; }
+  .looped-onboarding-name-row { flex-direction: column; }
 }
 
 .looped-invite-row {

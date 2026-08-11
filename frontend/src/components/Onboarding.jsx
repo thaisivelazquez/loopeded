@@ -72,7 +72,7 @@ export default function Onboarding({ ob, accent }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ font: '800 24px/1.25 Nunito,sans-serif' }}>you're verified 🎉</div>
             <div style={{ font: '15px/1.55 Karla,sans-serif', color: 'rgba(58,44,40,.65)' }}>last thing — what should we call you?</div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+            <div className="looped-onboarding-name-row" style={{ marginTop: 8 }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ font: '700 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.6)' }}>first name</label>
                 <input

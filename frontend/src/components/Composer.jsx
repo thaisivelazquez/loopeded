@@ -37,10 +37,10 @@ export default function Composer({ composer, accent }) {
             {composer.dateOptions.map(dt => <option key={dt.value} value={dt.value}>{dt.label}</option>)}
           </select>
           <div style={{ display: 'flex', gap: 10 }}>
-            <select value={composer.cTime} onChange={composer.setCTime} style={{ ...selectStyle, flex: 1 }}>
+            <select value={composer.cTime} onChange={composer.setCTime} style={{ ...selectStyle, flex: 1, minWidth: 0 }}>
               {composer.timeOptions.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
-            <select value={composer.cSpots} onChange={composer.setCSpots} style={{ ...selectStyle, flex: 1 }}>
+            <select value={composer.cSpots} onChange={composer.setCSpots} style={{ ...selectStyle, flex: 1, minWidth: 0 }}>
               {composer.spotsOptions.map(sp => <option key={sp.value} value={sp.value}>{sp.label}</option>)}
             </select>
           </div>
