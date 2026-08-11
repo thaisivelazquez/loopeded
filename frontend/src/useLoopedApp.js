@@ -10,6 +10,7 @@ import { COUNTRY_CODES } from './lib/countryCodes.js';
 const ACCENT = '#ff8a5c';
 const RESEND_COOLDOWN_SECONDS = 60;
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+const INVITE_LINK = 'https://looped.up.railway.app/';
 
 function emptyComposerFields() {
   return { cTitle: '', cPlace: '', cNote: '', cDate: '0', cTime: '', cSpots: '0', cEmoji: '', cVisibility: 'everyone', editingId: null };
@@ -913,8 +914,6 @@ export function useLoopedApp() {
       .then(res => toast(res.invited ? 'invite texted to ' + q + ' ✉️' : (res.message || 'invite sent')))
       .catch(() => toast("couldn't send that invite 🙏"));
   }
-  const INVITE_LINK = 'https://looped.up.railway.app/';
-
   // Copying is surprisingly unreliable across mobile browsers/WebViews, so
   // this tries three tiers in order and only reports failure if every one
   // of them didn't work:
