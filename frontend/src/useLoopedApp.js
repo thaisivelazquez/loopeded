@@ -36,6 +36,8 @@ function initialState() {
     detailId: null,
     statusFriendId: null,
     confirmRemoveId: null,
+    confirmDeleteAccount: false,
+    deletingAccount: false,
     nowTick: Date.now()
   };
 }
@@ -849,6 +851,28 @@ export function useLoopedApp() {
         try { await api.logout(); } catch (e) { /* ignore */ }
         setStateRaw(initialState());
         setState({ view: 'onboarding' });
+      },
+      // Two-tap confirm, same pattern as removing a friend — first tap arms
+      // it (button relabels itself as a real confirmation), a second tap
+      // actually deletes. Anything else (navigating away, etc.) just leaves
+      // it armed until they either confirm or the page reloads; harmless
+      // either way since nothing happens without that second tap.
+      deleteArmed: S.confirmDeleteAccount,
+      deletingAccount: S.deletingAccount,
+      deleteAccount: async () => {
+        if (!S.confirmDeleteAccount) {
+          setState({ confirmDeleteAccount: true });
+          return;
+        }
+        setState({ deletingAccount: true });
+        try {
+          await api.deleteAccount();
+          setStateRaw(initialState());
+          setState({ view: 'onboarding' });
+        } catch (e) {
+          setState({ deletingAccount: false, confirmDeleteAccount: false });
+          toast("couldn't delete your account — try again 🙏");
+        }
       }
     },
 

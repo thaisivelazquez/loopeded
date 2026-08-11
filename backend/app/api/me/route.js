@@ -46,6 +46,57 @@ export async function GET(request) {
   }
 }
 
+// DELETE /api/me — permanently delete your account.
+// Removes everything that belongs to you, in dependency order so nothing
+// is left dangling:
+//   1. Pings you sent/received, plus pings tied to events you host
+//   2. Your EventJoins, plus everyone else's EventJoins on events you host
+//      (so no one's left "going" to an event whose host no longer exists)
+//   3. Events you host
+//   4. Every Friendship row you're part of, pending or accepted — this is
+//      a real unfriend for the other side too, not just a delisting
+//   5. Your User row itself
+// Then clears the session cookie the same way /api/logout does, since
+// there's no account left to be signed into.
+export async function DELETE(request) {
+  try {
+    const user = await requireCurrentUser(request);
+
+    await query(
+      `DELETE FROM "Ping"
+        WHERE "recipientId" = $1
+           OR "requesterId" = $1
+           OR "eventId" IN (SELECT id FROM "Event" WHERE "hostId" = $1)`,
+      [user.id]
+    );
+
+    await query(
+      `DELETE FROM "EventJoin"
+        WHERE "userId" = $1
+           OR "eventId" IN (SELECT id FROM "Event" WHERE "hostId" = $1)`,
+      [user.id]
+    );
+
+    await query(`DELETE FROM "Event" WHERE "hostId" = $1`, [user.id]);
+
+    await query(`DELETE FROM "Friendship" WHERE $1 IN ("userAId", "userBId")`, [user.id]);
+
+    await query(`DELETE FROM "User" WHERE id = $1`, [user.id]);
+
+    const res = withCors(NextResponse.json({ ok: true }));
+    res.cookies.set("userId", "", {
+      httpOnly: true,
+      sameSite: "none",
+      secure: true,
+      path: "/",
+      maxAge: 0
+    });
+    return res;
+  } catch (err) {
+    return jsonError(err);
+  }
+}
+
 // PATCH /api/me   body: { bio: string }
 export async function PATCH(request) {
   try {

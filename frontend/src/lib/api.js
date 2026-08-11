@@ -66,6 +66,10 @@ export const api = {
 
   me: () => request('/api/me'),
   updateBio: (bio) => request('/api/me', { method: 'PATCH', body: JSON.stringify({ bio }) }),
+  deleteAccount: async () => {
+    try { return await request('/api/me', { method: 'DELETE' }); }
+    finally { setToken(null); }
+  },
 
   friends: () => request('/api/friends'),
   inviteFriend: (phone) => request('/api/friends', { method: 'POST', body: JSON.stringify({ phone }) }),
