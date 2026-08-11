@@ -250,22 +250,13 @@ export default function Friends({ friends, accent }) {
     invite
   </button>
 </div>
-        {friends.contactsLinked ? (
-          <>
-            <div className="looped-invite-row">
-              <input
-                className="looped-invite-input"
-                value={friends.contactQuery} onChange={friends.setContactQuery} onKeyDown={friends.searchKeyDown}
-                placeholder="search your contacts by name…"
-                style={{ minWidth: 0, border: '1px solid rgba(58,44,40,.2)', background: 'rgba(255,255,255,.6)', borderRadius: 999, padding: '12px 18px', font: '600 14px Karla,sans-serif', color: '#3a2c28' }}
-              />
-              <button className="looped-invite-btn" onClick={friends.searchContacts} style={{ cursor: 'pointer', border: '1.5px solid rgba(58,44,40,.25)', background: 'none', color: '#3a2c28', font: '800 13.5px Nunito,sans-serif', padding: '12px 20px', borderRadius: 999 }}>search</button>
-            </div>
-            <div style={{ font: '600 12px Karla,sans-serif', color: 'rgba(58,44,40,.5)' }}>📇 contacts linked — search by name is on</div>
-          </>
-        ) : (
-          <button onClick={friends.linkContacts} style={{ cursor: 'pointer', border: '1.5px dashed rgba(58,44,40,.28)', background: 'rgba(255,255,255,.4)', color: '#3a2c28', font: '700 13px Karla,sans-serif', padding: '11px 18px', borderRadius: 999, alignSelf: 'flex-start' }}>📇 link contacts to search friends by name</button>
-        )}
+        <button
+          onClick={friends.copyInviteLink}
+          style={{ cursor: 'pointer', border: '1.5px dashed rgba(58,44,40,.28)', background: 'rgba(255,255,255,.4)', color: '#3a2c28', font: '700 13px Karla,sans-serif', padding: '11px 18px', borderRadius: 999, alignSelf: 'flex-start' }}
+        >
+          🔗 copy invite link
+        </button>
+        <div style={{ font: '600 12px Karla,sans-serif', color: 'rgba(58,44,40,.5)' }}>share it with friends who aren't on looped yet so they can sign up</div>
       </div>
 
       <FriendsRing you={friends.you} friends={friends.cards} accent={accent} />
