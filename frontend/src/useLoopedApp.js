@@ -13,7 +13,7 @@ const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 const INVITE_LINK = 'https://looped.up.railway.app/';
 
 function emptyComposerFields() {
-  return { cTitle: '', cPlace: '', cNote: '', cDate: '0', cTime: '', cSpots: '0', cEmoji: '', cVisibility: 'everyone', editingId: null };
+  return { cTitle: '', cPlace: '', cNote: '', cDate: '0', cTime: '', cSpots: '0', cEmoji: '', cVisibility: 'outer', editingId: null };
 }
 
 function initialState() {
@@ -606,7 +606,6 @@ export function useLoopedApp() {
     pick: () => setState({ cEmoji: S.cEmoji === e ? '' : e })
   }));
   const visibilityOptions = [
-    { value: 'everyone', label: 'everyone on looped' },
     { value: 'outer', label: 'my friends (outer + inner circle)' },
     { value: 'inner', label: 'inner circle only 💛' }
   ];
@@ -646,7 +645,7 @@ export function useLoopedApp() {
       dayOffset,
       hour: parseFloat(validTime || '20'),
       spots: parseInt(S.cSpots, 10) || 0,
-      visibility: S.cVisibility || 'everyone'
+      visibility: S.cVisibility || 'outer'
     };
     const editingId = S.editingId;
     setState({ composerOpen: false, ...emptyComposerFields(), view: 'today' });
@@ -771,7 +770,11 @@ export function useLoopedApp() {
           cTime: String(a.hour),
           cSpots: String(a.spots || 0),
           cEmoji: a.emoji,
-          cVisibility: a.visibility || 'everyone'
+          // 'everyone' no longer has a matching <option> now that it's
+          // removed from the picker — fall back to 'outer' so editing an
+          // older event built before this change doesn't leave the select
+          // on a blank/invalid value.
+          cVisibility: (a.visibility && a.visibility !== 'everyone') ? a.visibility : 'outer'
         });
       }
     };
