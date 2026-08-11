@@ -30,7 +30,7 @@ function initialState() {
     composerOpen: false,
     ...emptyComposerFields(),
     toast: '',
-    friendQuery: '', contactQuery: '', contactsLinked: false,
+    friendQuery: '',
     skyOverride: 'auto',
     previewHour: null,
     detailId: null,
@@ -817,12 +817,7 @@ export function useLoopedApp() {
       setQuery: (e) => setState({ friendQuery: e.target.value }),
       inviteKeyDown: (e) => { if (e.key === 'Enter') doInvite(); },
       sendInvite: () => doInvite(),
-      contactsLinked: S.contactsLinked,
-      linkContacts: () => { setState({ contactsLinked: true }); toast('contacts linked 📇 search friends by name'); },
-      contactQuery: S.contactQuery,
-      setContactQuery: (e) => setState({ contactQuery: e.target.value }),
-      searchContacts: () => doSearch(),
-      searchKeyDown: (e) => { if (e.key === 'Enter') doSearch(); },
+      copyInviteLink: () => copyInviteLink(),
       cards: friendCards,
       you: { initial: (name[0] || 'y').toUpperCase(), color: '#ffb37e', avatarUrl: null },
       status: friendStatus || { open: false }
@@ -918,10 +913,29 @@ export function useLoopedApp() {
       .then(res => toast(res.invited ? 'invite texted to ' + q + ' ✉️' : (res.message || 'invite sent')))
       .catch(() => toast("couldn't send that invite 🙏"));
   }
-  function doSearch() {
-    const q = S.contactQuery.trim();
-    if (!q) { toast('type a name to search 🙂'); return; }
-    toast('searching contacts for "' + q + '"…');
-    setState({ contactQuery: '' });
+  const INVITE_LINK = 'https://looped.up.railway.app/';
+
+  async function copyInviteLink() {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(INVITE_LINK);
+      } else {
+        // Fallback for browsers without the async clipboard API (or a
+        // non-https context, where it's unavailable entirely) — a hidden
+        // textarea + the old execCommand copy still works everywhere.
+        const ta = document.createElement('textarea');
+        ta.value = INVITE_LINK;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      toast('invite link copied 🔗');
+    } catch (e) {
+      toast("couldn't copy the link — try again 🙏");
+    }
   }
 }
