@@ -125,7 +125,7 @@ function FriendStatusCard({ status, accent }) {
           <div>
             <div style={{ font: '800 17px Nunito,sans-serif' }}>{status.name}</div>
             <div style={{ font: '700 12px Karla,sans-serif', color: status.live ? '#2f9e52' : 'rgba(58,44,40,.55)', marginTop: 2 }}>
-              {status.live ? '🟢 live' : '⚪ offline'}
+              {/* {status.live ? '🟢 live' : '⚪ offline'} */}
             </div>
           </div>
         </div>
