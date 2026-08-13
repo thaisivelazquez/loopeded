@@ -17,8 +17,12 @@ export async function OPTIONS(request) {
 // - Friend-request ping (has requesterId): 'accept' marks the Friendship
 //   accepted (so they now show up in your friends list and any outer/inner
 //   events unlock for each other); 'decline' deletes the Friendship row
-//   entirely, so they're free to request again later. Defaults to 'accept'
-//   if no decision is sent.
+//   entirely, so they're free to request again later. Either way the ping
+//   ITSELF is kept, not deleted — its text is rewritten into a record of
+//   what you decided ("you accepted/declined ___'s friend request") and its
+//   cta is cleared, so the Pings tab shows the outcome instead of the
+//   request just vanishing with no trace. Defaults to 'accept' if no
+//   decision is sent.
 // - Event ping (has eventId): unchanged — joins the linked event and marks
 //   the ping read, regardless of decision.
 export async function POST(request, { params }) {
@@ -43,13 +47,18 @@ export async function POST(request, { params }) {
 
     if (ping.requesterId) {
       const [userAId, userBId] = [user.id, ping.requesterId].sort();
+      const { rows: reqRows } = await query(`SELECT "firstName" FROM "User" WHERE id = $1`, [ping.requesterId]);
+      const requesterName = (reqRows[0]?.firstName || "they").toLowerCase();
 
       if (decision === "decline") {
         await query(`DELETE FROM "Friendship" WHERE "userAId" = $1 AND "userBId" = $2`, [
           userAId,
           userBId
         ]);
-        await query(`DELETE FROM "Ping" WHERE id = $1`, [id]);
+        await query(
+          `UPDATE "Ping" SET text = $2, cta = NULL, read = true WHERE id = $1`,
+          [id, `you declined ${requesterName}'s friend request`]
+        );
         return withCors(NextResponse.json({ ok: true, declined: true }));
       }
 
@@ -57,7 +66,10 @@ export async function POST(request, { params }) {
         `UPDATE "Friendship" SET status = 'accepted' WHERE "userAId" = $1 AND "userBId" = $2`,
         [userAId, userBId]
       );
-      await query(`UPDATE "Ping" SET read = true WHERE id = $1`, [id]);
+      await query(
+        `UPDATE "Ping" SET text = $2, cta = NULL, read = true WHERE id = $1`,
+        [id, `you accepted ${requesterName}'s friend request`]
+      );
 
       // Let the original requester know their request went through — this
       // is the "changing state of notification" half of the friend-request
