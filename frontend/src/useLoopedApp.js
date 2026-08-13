@@ -361,7 +361,11 @@ export function useLoopedApp() {
 
   const pings = S.pingsRaw.map(p => {
     const f = p.who ? friendById(p.who) : null;
-    const isFriendRequest = !!p.requesterId;
+    // Once accepted/declined, the backend clears the ping's cta (action) so
+    // it stops rendering as an actionable request — requesterId stays set
+    // (it's still a friend-request-shaped ping for the avatar/styling), but
+    // the accept/decline buttons only show while it's still pending.
+    const isFriendRequest = !!p.requesterId && !!p.action;
     return {
       key: p.id,
       text: p.text, when: p.when,
@@ -382,8 +386,16 @@ export function useLoopedApp() {
         try { await api.pingAction(p.id); } catch (e) { await loadBoard(); }
       },
       // ---------- friend request: accept / decline ----------
+      // Both rewrite the ping in place (text + clearing action) instead of
+      // removing it, so the Pings tab keeps a visible record of what you
+      // decided rather than the request just disappearing.
       accept: async () => {
-        setState(prev => ({ pingsRaw: prev.pingsRaw.filter(x => x.id !== p.id) }));
+        const requesterName = p.text.replace(/ wants to be friends$/i, '').toLowerCase();
+        setState(prev => ({
+          pingsRaw: prev.pingsRaw.map(x => (x.id === p.id
+            ? { ...x, unread: false, action: null, text: `you accepted ${requesterName}'s friend request` }
+            : x))
+        }));
         toast("you're friends now 🎉");
         try {
           await api.pingAction(p.id, 'accept');
@@ -394,9 +406,15 @@ export function useLoopedApp() {
         }
       },
       decline: async () => {
-        setState(prev => ({ pingsRaw: prev.pingsRaw.filter(x => x.id !== p.id) }));
+        const requesterName = p.text.replace(/ wants to be friends$/i, '').toLowerCase();
+        setState(prev => ({
+          pingsRaw: prev.pingsRaw.map(x => (x.id === p.id
+            ? { ...x, unread: false, action: null, text: `you declined ${requesterName}'s friend request` }
+            : x))
+        }));
         try {
           await api.pingAction(p.id, 'decline');
+          await loadBoard();
         } catch (e) {
           await loadBoard();
           toast("couldn't decline that — try again 🙏");
