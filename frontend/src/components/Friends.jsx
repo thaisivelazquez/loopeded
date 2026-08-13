@@ -125,7 +125,7 @@ function FriendStatusCard({ status, accent }) {
           <div>
             <div style={{ font: '800 17px Nunito,sans-serif' }}>{status.name}</div>
             <div style={{ font: '700 12px Karla,sans-serif', color: status.live ? '#2f9e52' : 'rgba(58,44,40,.55)', marginTop: 2 }}>
-              {/* {status.live ? '🟢 live' : '⚪ offline'} */}
+              {status.live ? '🟢 live' : '⚪ offline'}
             </div>
           </div>
         </div>
@@ -206,13 +206,9 @@ export default function Friends({ friends, accent }) {
         outline: 'none'
       }}
     >
-      <option value="+1">🇺🇸 +1</option>
-      <option value="+44">🇬🇧 +44</option>
-      <option value="+61">🇦🇺 +61</option>
-      <option value="+33">🇫🇷 +33</option>
-      <option value="+49">🇩🇪 +49</option>
-      <option value="+81">🇯🇵 +81</option>
-      <option value="+91">🇮🇳 +91</option>
+      {friends.countryOptions.map(c => (
+        <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+      ))}
     </select>
 
     <input

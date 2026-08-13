@@ -878,6 +878,7 @@ export function useLoopedApp() {
       inviteKeyDown: (e) => { if (e.key === 'Enter') doInvite(); },
       sendInvite: () => doInvite(),
       copyInviteLink: () => copyInviteLink(),
+      countryOptions: COUNTRY_CODES,
       cards: friendCards,
       you: { initial: (name[0] || 'y').toUpperCase(), color: '#ffb37e', avatarUrl: null },
       status: friendStatus || { open: false }
