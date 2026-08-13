@@ -59,7 +59,7 @@ function FriendsRing({ you, friends, accent }) {
               {fr.live && <div style={liveDotStyle} />}
             </div>
             <div style={{ marginTop: 4, font: '700 10.5px Karla,sans-serif', color: 'rgba(58,44,40,.6)', whiteSpace: 'nowrap' }}>
-              {(fr.name || '').split(' ')[0]}
+              {fr.first || fr.name}
             </div>
           </div>
         ))}
@@ -76,7 +76,7 @@ function FriendsRing({ you, friends, accent }) {
               {fr.live && <div style={liveDotStyle} />}
             </div>
             <div style={{ marginTop: 4, font: '600 10px Karla,sans-serif', color: 'rgba(58,44,40,.55)', whiteSpace: 'nowrap' }}>
-              {(fr.name || '').split(' ')[0]}
+              {fr.first || fr.name}
             </div>
           </div>
         ))}
@@ -256,7 +256,7 @@ export default function Friends({ friends, accent }) {
         >
           🔗 copy invite link
         </button>
-        <div style={{ font: '600 12px Karla,sans-serif', color: 'rgba(58,44,40,.5)' }}>share looped with friends who haven't joined yet</div>
+        <div style={{ font: '600 12px Karla,sans-serif', color: 'rgba(58,44,40,.5)' }}>share it with friends who aren't on looped yet so they can sign up</div>
       </div>
 
       <FriendsRing you={friends.you} friends={friends.cards} accent={accent} />
