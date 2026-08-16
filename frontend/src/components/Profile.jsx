@@ -60,13 +60,13 @@ export default function Profile({ profile }) {
         )}
       </div>
 
-      <div style={{ marginTop: 30, font: '800 17px Nunito,sans-serif' }}>the sky</div>
+      {/* <div style={{ marginTop: 30, font: '800 17px Nunito,sans-serif' }}>the sky</div>
       <div style={{ font: '13px Karla,sans-serif', color: 'rgba(58,44,40,.6)', marginTop: 4 }}>looped's background follows the real time of day. peek at the other skies:</div>
       <div style={{ display: 'flex', gap: 9, marginTop: 12 }}>
         {profile.skyChips.map(chip => (
           <button key={chip.key} onClick={chip.pick} style={{ cursor: 'pointer', border: '1.5px solid ' + chip.border, background: chip.bg, color: '#3a2c28', font: '700 12.5px Karla,sans-serif', padding: '9px 15px', borderRadius: 999 }}>{chip.label}</button>
         ))}
-      </div>
+      </div> */}
 
       <div style={{ marginTop: 30, display: 'flex', flexDirection: 'column', gap: 14 }}>
         <button onClick={profile.resetApp} style={{ cursor: 'pointer', border: 'none', background: 'none', font: '600 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.45)', textDecoration: 'underline', padding: 0, alignSelf: 'flex-start' }}>logout</button>
