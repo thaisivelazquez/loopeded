@@ -1,7 +1,7 @@
 export default function NavBar({ nav, accent }) {
   return (
     <div className="looped-navbar">
-      <div className="looped-navbar-logo" style={{ fontFamily: 'Nunito,sans-serif', fontWeight: 900, letterSpacing: '-.02em', cursor: 'pointer', flex: 'none' }} onClick={nav.goToday}>loopeddeloop</div>
+      <div className="looped-navbar-logo" style={{ fontFamily: 'Nunito,sans-serif', fontWeight: 900, letterSpacing: '-.02em', cursor: 'pointer', flex: 'none' }} onClick={nav.goToday}>deloop</div>
       <div className="looped-navbar-tabs">
         {nav.tabs.map(tab => (
           <button
