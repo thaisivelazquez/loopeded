@@ -101,7 +101,7 @@ function FriendsRing({ you, friends, accent }) {
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <div style={{ ...liveDotStyle, position: 'static', flexShrink: 0, marginTop: 3 }} />
-          <div style={{ font: '11.5px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.6)' }}>green dot = live right now</div>
+          <div style={{ font: '11.5px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.6)' }}>green dot = One a sidequest</div>
         </div>
         <div style={{ font: '11px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.5)' }}>tap anyone in the ring to see what they're up to</div>
       </div>
