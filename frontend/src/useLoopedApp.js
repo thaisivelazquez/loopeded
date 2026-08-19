@@ -20,9 +20,10 @@ function initialState() {
     view: 'loading', // 'loading' | 'onboarding' | 'today' | 'friends' | 'pings' | 'you'
     name: '', last: '', phone: '', bio: '',
     onboarded: false,
-    obStep: 1, // 1 = name+phone, 2 = verify code, 3 = suggested friends
+    obStep: 1, // 1 = phone, 2 = verify code, 3 = name, 4 = suggested friends
     obFirst: '', obLast: '', obPhone: '', obCountry: '+1',
     obCode: '', codeError: '', sendingCode: false, verifying: false, resendCooldown: 0, resending: false,
+    creatingAccount: false,
     obSuggested: [], obAdded: [],
     friendsRaw: [],
     events: [],
@@ -487,7 +488,8 @@ export function useLoopedApp() {
       }
     };
   });
-  const obDots = [1, 2, 3].map(n => ({ bg: n === S.obStep ? '#3a2c28' : 'rgba(58,44,40,.2)' }));
+  // Four steps now: phone -> verify -> name -> suggested friends.
+  const obDots = [1, 2, 3, 4].map(n => ({ bg: n === S.obStep ? '#3a2c28' : 'rgba(58,44,40,.2)' }));
 
   // Combines the selected country code with the digits typed in the phone
   // field into a proper E.164 number (e.g. "+1" + "(347) 544-8544" ->
@@ -497,9 +499,9 @@ export function useLoopedApp() {
     return S.obCountry + digits;
   }
 
-  // Step 1 -> sends the SMS code via Twilio Verify, then moves to step 2.
+  // Step 1 (phone only) -> sends the SMS code via Twilio Verify, then moves
+  // to step 2. No name check here — name isn't collected until step 3.
   async function obNextFn() {
-    if (!S.obFirst.trim()) { toast('tell us your first name 🙂'); return; }
     const digits = S.obPhone.replace(/\D/g, '');
     if (digits.length < 6) { toast('add a valid phone number 📱'); return; }
     setState({ sendingCode: true });
@@ -514,8 +516,8 @@ export function useLoopedApp() {
     }
   }
 
-  // Step 2 -> checks the code with Twilio, and only THEN creates the
-  // account (POST /api/signup, which is now gated behind verification).
+  // Step 2 -> just checks the code with Twilio and moves to step 3 (name).
+  // Account creation now happens at step 3, once we actually have a name.
   async function verifyCodeFn() {
     const code = S.obCode.trim();
     if (code.length !== 6) { setState({ codeError: 'enter the 6-digit code' }); return; }
@@ -526,11 +528,25 @@ export function useLoopedApp() {
         setState({ verifying: false, codeError: "that code didn't match — try again" });
         return;
       }
-      await api.signup(S.obFirst.trim(), S.obLast.trim(), fullPhone());
-      const obSuggested = await api.discoverUsers();
-      setState({ obSuggested, obStep: 3, verifying: false });
+      setState({ obStep: 3, verifying: false });
     } catch (e) {
       setState({ verifying: false, codeError: e.message || 'something went wrong — try again' });
+    }
+  }
+
+  // Step 3 (name) -> creates the account (POST /api/signup, gated behind
+  // verification which already happened in step 2), then loads suggested
+  // friends and moves to step 4.
+  async function createAccountFn() {
+    if (!S.obFirst.trim()) { toast('tell us your first name 🙂'); return; }
+    setState({ creatingAccount: true });
+    try {
+      await api.signup(S.obFirst.trim(), S.obLast.trim(), fullPhone());
+      const obSuggested = await api.discoverUsers();
+      setState({ obSuggested, obStep: 4, creatingAccount: false });
+    } catch (e) {
+      setState({ creatingAccount: false });
+      toast(e.message || "couldn't create your account — try again 🙏");
     }
   }
 
@@ -741,6 +757,7 @@ export function useLoopedApp() {
       step1: S.obStep === 1,
       stepVerify: S.obStep === 2,
       step3: S.obStep === 3,
+      step4: S.obStep === 4,
       obFirst: S.obFirst, obLast: S.obLast, obPhone: S.obPhone,
       obCountry: S.obCountry,
       setObCountry: (e) => setState({ obCountry: e.target.value }),
@@ -751,7 +768,8 @@ export function useLoopedApp() {
       setObFirst: (e) => setState({ obFirst: e.target.value }),
       setObLast: (e) => setState({ obLast: e.target.value }),
       setObPhone: (e) => setState({ obPhone: e.target.value }),
-      nameKeyDown: (e) => { if (e.key === 'Enter') obNextFn(); },
+      phoneKeyDown: (e) => { if (e.key === 'Enter') obNextFn(); },
+      nameKeyDown: (e) => { if (e.key === 'Enter') createAccountFn(); },
       next: obNextFn,
       sendingCode: S.sendingCode,
 
@@ -764,6 +782,9 @@ export function useLoopedApp() {
       resend: resendCodeFn,
       resendCooldown: S.resendCooldown,
       resending: S.resending,
+
+      createAccount: createAccountFn,
+      creatingAccount: S.creatingAccount,
 
       friendsList: obFriendsList,
       dots: obDots,
