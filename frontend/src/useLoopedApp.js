@@ -42,6 +42,7 @@ function initialState() {
     detailId: null,
     statusFriendId: null,
     confirmRemoveId: null,
+    confirmDeleteAccount: false,
     nowTick: Date.now()
   };
 }
@@ -897,6 +898,26 @@ export function useLoopedApp() {
       yourInitial: (name[0] || 'y').toUpperCase(),
       resetApp: async () => {
         try { await api.logout(); } catch (e) { /* ignore */ }
+        setStateRaw(initialState());
+        setState({ view: 'onboarding' });
+      },
+      // Two-tap confirm, same pattern as removing a friend — first tap
+      // arms it (button relabels to a confirmation), second tap actually
+      // deletes. This is NOT reversible: it wipes the account and
+      // everything tied to it (posts, joins, friendships, pings) on the
+      // backend, not just a local logout.
+      deleteAccountArmed: S.confirmDeleteAccount,
+      armDeleteAccount: () => setState({ confirmDeleteAccount: true }),
+      cancelDeleteAccount: () => setState({ confirmDeleteAccount: false }),
+      deleteAccount: async () => {
+        if (!S.confirmDeleteAccount) { setState({ confirmDeleteAccount: true }); return; }
+        try {
+          await api.deleteAccount();
+        } catch (e) {
+          toast("couldn't delete your account — try again 🙏");
+          setState({ confirmDeleteAccount: false });
+          return;
+        }
         setStateRaw(initialState());
         setState({ view: 'onboarding' });
       }

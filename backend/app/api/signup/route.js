@@ -19,12 +19,9 @@ export async function POST(request) {
     const lastName = (body.lastName ?? "").trim();
     const phone = (body.phone ?? "").trim();
 
-    if (!firstName || !phone) {
+    if (!phone) {
       return withCors(
-        NextResponse.json(
-          { error: "firstName and phone are required" },
-          { status: 400 }
-        )
+        NextResponse.json({ error: "phone is required" }, { status: 400 })
       );
     }
 
@@ -36,8 +33,18 @@ export async function POST(request) {
     let userId;
 
     if (existing[0]) {
+      // Returning user logging back in — /api/users/lookup already told the
+      // frontend this number exists, so no name was collected this time.
+      // firstName/lastName are ignored here on purpose: we never overwrite
+      // an existing profile from this call.
       userId = existing[0].id;
     } else {
+      if (!firstName) {
+        return withCors(
+          NextResponse.json({ error: "firstName is required for new accounts" }, { status: 400 })
+        );
+      }
+
       userId = randomUUID();
 
       await query(

@@ -60,39 +60,28 @@ export default function Profile({ profile }) {
         )}
       </div>
 
-      {/* <div style={{ marginTop: 30, font: '800 17px Nunito,sans-serif' }}>the sky</div>
+      <div style={{ marginTop: 30, font: '800 17px Nunito,sans-serif' }}>the sky</div>
       <div style={{ font: '13px Karla,sans-serif', color: 'rgba(58,44,40,.6)', marginTop: 4 }}>looped's background follows the real time of day. peek at the other skies:</div>
       <div style={{ display: 'flex', gap: 9, marginTop: 12 }}>
         {profile.skyChips.map(chip => (
           <button key={chip.key} onClick={chip.pick} style={{ cursor: 'pointer', border: '1.5px solid ' + chip.border, background: chip.bg, color: '#3a2c28', font: '700 12.5px Karla,sans-serif', padding: '9px 15px', borderRadius: 999 }}>{chip.label}</button>
         ))}
-      </div> */}
+      </div>
 
-      <div style={{ marginTop: 30, display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <button onClick={profile.resetApp} style={{ cursor: 'pointer', border: 'none', background: 'none', font: '600 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.45)', textDecoration: 'underline', padding: 0, alignSelf: 'flex-start' }}>logout</button>
-
-        <div style={{ borderTop: '1px solid rgba(58,44,40,.12)', paddingTop: 14 }}>
-          <button
-            onClick={profile.deleteAccount}
-            disabled={profile.deletingAccount}
-            style={{
-              cursor: profile.deletingAccount ? 'default' : 'pointer',
-              display: 'block', width: '100%',
-              border: profile.deleteArmed ? '1.5px solid #e0574c' : 'none',
-              background: profile.deleteArmed ? 'rgba(224,87,76,.1)' : 'transparent',
-              color: profile.deleteArmed ? '#c13d33' : 'rgba(58,44,40,.45)',
-              font: '700 12.5px Karla,sans-serif', padding: 10, borderRadius: 999,
-              opacity: profile.deletingAccount ? .6 : 1
-            }}
-          >
-            {profile.deletingAccount ? 'deleting your account…' : profile.deleteArmed ? 'tap again to permanently delete your account 💔' : 'delete account'}
-          </button>
-          {profile.deleteArmed && !profile.deletingAccount && (
-            <div style={{ font: '600 11.5px/1.4 Karla,sans-serif', color: 'rgba(58,44,40,.5)', marginTop: 6, textAlign: 'center' }}>
-              this permanently deletes your account, your posts, and your friendships — it can't be undone
-            </div>
-          )}
-        </div>
+      <div style={{ marginTop: 30, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start' }}>
+        <button onClick={profile.resetApp} style={{ cursor: 'pointer', border: 'none', background: 'none', font: '600 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.45)', textDecoration: 'underline', padding: 0 }}>logout</button>
+        <button
+          onClick={profile.deleteAccount}
+          onBlur={() => profile.deleteAccountArmed && profile.cancelDeleteAccount()}
+          style={{
+            cursor: 'pointer', border: 'none', background: 'none', padding: 0,
+            font: '600 12.5px Karla,sans-serif',
+            color: profile.deleteAccountArmed ? '#c13d33' : 'rgba(58,44,40,.45)',
+            textDecoration: 'underline'
+          }}
+        >
+          {profile.deleteAccountArmed ? 'tap again to permanently delete your account 💔' : 'delete account'}
+        </button>
       </div>
     </div>
   );

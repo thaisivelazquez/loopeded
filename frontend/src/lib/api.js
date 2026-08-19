@@ -65,6 +65,11 @@ export const api = {
     try { return await request('/api/logout', { method: 'POST' }); }
     finally { setToken(null); }
   },
+  deleteAccount: async () => {
+    const body = await request('/api/account', { method: 'DELETE' });
+    setToken(null);
+    return body;
+  },
 
   me: () => request('/api/me'),
   updateBio: (bio) => request('/api/me', { method: 'PATCH', body: JSON.stringify({ bio }) }),
