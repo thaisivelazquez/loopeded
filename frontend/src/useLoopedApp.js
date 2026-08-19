@@ -20,10 +20,15 @@ function initialState() {
     view: 'loading', // 'loading' | 'onboarding' | 'today' | 'friends' | 'pings' | 'you'
     name: '', last: '', phone: '', bio: '',
     onboarded: false,
-    obStep: 1, // 1 = phone, 2 = verify code, 3 = name, 4 = suggested friends
+    // Onboarding now branches on whether the phone number already has an
+    // account (checked via api.checkPhoneExists right after step 1):
+    //   new number:      phone -> name -> verify -> friends
+    //   existing number: phone -> verify -> (log straight in, no more screens)
+    // obIsNewUser is null until that check resolves.
+    obScreen: 'phone', // 'phone' | 'name' | 'verify' | 'friends'
+    obIsNewUser: null,
     obFirst: '', obLast: '', obPhone: '', obCountry: '+1',
     obCode: '', codeError: '', sendingCode: false, verifying: false, resendCooldown: 0, resending: false,
-    creatingAccount: false,
     obSuggested: [], obAdded: [],
     friendsRaw: [],
     events: [],
@@ -488,8 +493,14 @@ export function useLoopedApp() {
       }
     };
   });
-  // Four steps now: phone -> verify -> name -> suggested friends.
-  const obDots = [1, 2, 3, 4].map(n => ({ bg: n === S.obStep ? '#3a2c28' : 'rgba(58,44,40,.2)' }));
+  // Dot progress indicator: new-number path is phone->name->verify->friends
+  // (4 dots); an existing number skips straight from phone to verify (2
+  // dots) since there's no name step or friends step to log back in.
+  // obIsNewUser is null while still on the phone screen (not yet known) —
+  // default to the longer 4-step path in that case.
+  const obScreens = S.obIsNewUser === false ? ['phone', 'verify'] : ['phone', 'name', 'verify', 'friends'];
+  const obCurrentIndex = obScreens.indexOf(S.obScreen);
+  const obDots = obScreens.map((_, i) => ({ bg: i === obCurrentIndex ? '#3a2c28' : 'rgba(58,44,40,.2)' }));
 
   // Combines the selected country code with the digits typed in the phone
   // field into a proper E.164 number (e.g. "+1" + "(347) 544-8544" ->
@@ -499,15 +510,39 @@ export function useLoopedApp() {
     return S.obCountry + digits;
   }
 
-  // Step 1 (phone only) -> sends the SMS code via Twilio Verify, then moves
-  // to step 2. No name check here — name isn't collected until step 3.
+  // Step 1 (phone only) -> looks the number up first. An existing account
+  // skips straight to sending the code (no need to ask for a name again —
+  // "already on looped? we'll log you right in"); a new number goes to the
+  // name screen first, and the code isn't sent until after that.
   async function obNextFn() {
     const digits = S.obPhone.replace(/\D/g, '');
     if (digits.length < 6) { toast('add a valid phone number 📱'); return; }
     setState({ sendingCode: true });
     try {
+      const { exists } = await api.checkPhoneExists(fullPhone());
+      if (exists) {
+        setState({ obIsNewUser: false });
+        await api.sendVerificationCode(fullPhone());
+        setState({ obScreen: 'verify', sendingCode: false, obCode: '', codeError: '' });
+        startResendCooldown();
+        toast('welcome back — code sent 📲');
+      } else {
+        setState({ obIsNewUser: true, sendingCode: false, obScreen: 'name' });
+      }
+    } catch (e) {
+      setState({ sendingCode: false });
+      toast(e.message || "couldn't check that number — try again 🙏");
+    }
+  }
+
+  // Name screen (new numbers only) -> now that we have a name, send the
+  // verification code and move to the verify screen.
+  async function nameNextFn() {
+    if (!S.obFirst.trim()) { toast('tell us your first name 🙂'); return; }
+    setState({ sendingCode: true });
+    try {
       await api.sendVerificationCode(fullPhone());
-      setState({ obStep: 2, sendingCode: false, obCode: '', codeError: '' });
+      setState({ obScreen: 'verify', sendingCode: false, obCode: '', codeError: '' });
       startResendCooldown();
       toast('code sent 📲');
     } catch (e) {
@@ -516,8 +551,12 @@ export function useLoopedApp() {
     }
   }
 
-  // Step 2 -> just checks the code with Twilio and moves to step 3 (name).
-  // Account creation now happens at step 3, once we actually have a name.
+  // Verify screen -> checks the code, then either:
+  //   new number:      creates the account with the name from step 2,
+  //                     loads suggested friends, moves to the friends screen
+  //   existing number:  logs straight in (no name was collected this time —
+  //                     the backend ignores firstName/lastName for an
+  //                     existing account) and skips onboarding entirely
   async function verifyCodeFn() {
     const code = S.obCode.trim();
     if (code.length !== 6) { setState({ codeError: 'enter the 6-digit code' }); return; }
@@ -528,25 +567,25 @@ export function useLoopedApp() {
         setState({ verifying: false, codeError: "that code didn't match — try again" });
         return;
       }
-      setState({ obStep: 3, verifying: false });
+
+      if (S.obIsNewUser) {
+        await api.signup(S.obFirst.trim(), S.obLast.trim(), fullPhone());
+        const obSuggested = await api.discoverUsers();
+        setState({ obSuggested, obScreen: 'friends', verifying: false });
+      } else {
+        // Returning user — /api/signup doubles as login for a known phone
+        // number (no firstName required for that branch server-side).
+        await api.signup('', '', fullPhone());
+        const me = await api.me();
+        setState({
+          name: me.firstName, last: me.lastName || '', phone: me.phone || '', bio: me.bio || '',
+          onboarded: true, view: 'today', verifying: false
+        });
+        toast('welcome back 💛');
+        await loadBoard();
+      }
     } catch (e) {
       setState({ verifying: false, codeError: e.message || 'something went wrong — try again' });
-    }
-  }
-
-  // Step 3 (name) -> creates the account (POST /api/signup, gated behind
-  // verification which already happened in step 2), then loads suggested
-  // friends and moves to step 4.
-  async function createAccountFn() {
-    if (!S.obFirst.trim()) { toast('tell us your first name 🙂'); return; }
-    setState({ creatingAccount: true });
-    try {
-      await api.signup(S.obFirst.trim(), S.obLast.trim(), fullPhone());
-      const obSuggested = await api.discoverUsers();
-      setState({ obSuggested, obStep: 4, creatingAccount: false });
-    } catch (e) {
-      setState({ creatingAccount: false });
-      toast(e.message || "couldn't create your account — try again 🙏");
     }
   }
 
@@ -754,10 +793,10 @@ export function useLoopedApp() {
     isLoading,
 
     onboarding: {
-      step1: S.obStep === 1,
-      stepVerify: S.obStep === 2,
-      step3: S.obStep === 3,
-      step4: S.obStep === 4,
+      step1: S.obScreen === 'phone',
+      stepVerify: S.obScreen === 'verify',
+      step3: S.obScreen === 'name',
+      step4: S.obScreen === 'friends',
       obFirst: S.obFirst, obLast: S.obLast, obPhone: S.obPhone,
       obCountry: S.obCountry,
       setObCountry: (e) => setState({ obCountry: e.target.value }),
@@ -769,7 +808,7 @@ export function useLoopedApp() {
       setObLast: (e) => setState({ obLast: e.target.value }),
       setObPhone: (e) => setState({ obPhone: e.target.value }),
       phoneKeyDown: (e) => { if (e.key === 'Enter') obNextFn(); },
-      nameKeyDown: (e) => { if (e.key === 'Enter') createAccountFn(); },
+      nameKeyDown: (e) => { if (e.key === 'Enter') nameNextFn(); },
       next: obNextFn,
       sendingCode: S.sendingCode,
 
@@ -783,8 +822,11 @@ export function useLoopedApp() {
       resendCooldown: S.resendCooldown,
       resending: S.resending,
 
-      createAccount: createAccountFn,
-      creatingAccount: S.creatingAccount,
+      // The name screen's button ("continue") sends the verification code
+      // once a name is entered — reuses sendingCode for its loading state,
+      // same as step 1's button.
+      createAccount: nameNextFn,
+      creatingAccount: S.sendingCode,
 
       friendsList: obFriendsList,
       dots: obDots,

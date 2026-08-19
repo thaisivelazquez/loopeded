@@ -49,18 +49,12 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  checkPhoneExists: (phone) =>
+    request('/api/users/lookup', { method: 'POST', body: JSON.stringify({ phone }) }),
   sendVerificationCode: (phone) =>
     request('/api/verify/send', { method: 'POST', body: JSON.stringify({ phone }) }),
-  // For a returning user, the backend logs them in as part of this same
-  // check (sets the session cookie) and hands back their userId — mirror
-  // that here by also storing it as the bearer-token fallback, same as
-  // signup() does, so the mobile cross-site-cookie gap doesn't leave them
-  // half-logged-in.
-  checkVerificationCode: async (phone, code) => {
-    const body = await request('/api/verify/check', { method: 'POST', body: JSON.stringify({ phone, code }) });
-    if (body?.accountExists && body?.userId) setToken(body.userId);
-    return body;
-  },
+  checkVerificationCode: (phone, code) =>
+    request('/api/verify/check', { method: 'POST', body: JSON.stringify({ phone, code }) }),
 
   signup: async (firstName, lastName, phone) => {
     const body = await request('/api/signup', { method: 'POST', body: JSON.stringify({ firstName, lastName, phone }) });
@@ -74,10 +68,6 @@ export const api = {
 
   me: () => request('/api/me'),
   updateBio: (bio) => request('/api/me', { method: 'PATCH', body: JSON.stringify({ bio }) }),
-  deleteAccount: async () => {
-    try { return await request('/api/me', { method: 'DELETE' }); }
-    finally { setToken(null); }
-  },
 
   friends: () => request('/api/friends'),
   inviteFriend: (phone) => request('/api/friends', { method: 'POST', body: JSON.stringify({ phone }) }),
