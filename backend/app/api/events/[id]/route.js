@@ -8,6 +8,7 @@ import { jsonError, withCors, corsPreflight } from "../../../../lib/format";
 import { notifyUsers } from "../../../../lib/notify";
 import { toBoardFields, fromBoardFields, formatClock } from "../../../../lib/time";
 import { dayLabelFor } from "../../../../lib/dayLabel";
+import { geocodeAddress } from "../../../../lib/geocode";
 
 export async function OPTIONS(request) {
   return corsPreflight(request);
@@ -49,13 +50,21 @@ export async function PATCH(request, { params }) {
         ? fromBoardFields(body.dayOffset, body.hour)
         : existing.startAt;
 
+    // Only re-geocode (a paid, non-free API call) when the place text
+    // actually changed — otherwise keep the coordinates we already have.
+    const placeChanged = place !== existing.location;
+    const coords = placeChanged ? await geocodeAddress(place) : null;
+    const lat = placeChanged ? coords?.lat ?? null : existing.lat;
+    const lng = placeChanged ? coords?.lng ?? null : existing.lng;
+
     const { rows } = await query(
       `UPDATE "Event"
           SET emoji = $1, title = $2, location = $3, note = $4,
-              "timeLabel" = $2, "startAt" = $5, spots = $6, visibility = $7
-        WHERE id = $8
+              "timeLabel" = $2, "startAt" = $5, spots = $6, visibility = $7,
+              lat = $8, lng = $9
+        WHERE id = $10
         RETURNING *`,
-      [emoji, what, place, note, startAt, spots, visibility, id]
+      [emoji, what, place, note, startAt, spots, visibility, lat, lng, id]
     );
     const e = rows[0];
 
@@ -101,7 +110,9 @@ export async function PATCH(request, { params }) {
         dayOffset,
         day: dayOffset > 0 ? dayLabelFor(dayOffset) : undefined,
         spots: e.spots,
-        visibility: e.visibility
+        visibility: e.visibility,
+        lat: e.lat ?? undefined,
+        lng: e.lng ?? undefined
       })
     );
   } catch (err) {

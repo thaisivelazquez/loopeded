@@ -9,6 +9,7 @@ import { jsonError, withCors, corsPreflight } from "../../../lib/format";
 import { toBoardFields, fromBoardFields, postedAgo } from "../../../lib/time";
 import { dayLabelFor } from "../../../lib/dayLabel";
 import { notifyUser } from "../../../lib/notify";
+import { geocodeAddress } from "../../../lib/geocode";
 
 export async function OPTIONS(request) {
   return corsPreflight(request);
@@ -104,6 +105,8 @@ export async function GET(request) {
         day: dayOffset > 0 ? dayLabelFor(dayOffset) : undefined,
         spots: e.spots,
         visibility: e.visibility,
+        lat: e.lat ?? undefined,
+        lng: e.lng ?? undefined,
         // joined excludes the viewer — the frontend tracks the viewer's own
         // join state separately (see youIn) and adds it back in when it
         // needs a total headcount.
@@ -140,14 +143,15 @@ export async function POST(request) {
     const visibility = VALID_VISIBILITY.has(body.visibility) ? body.visibility : "everyone";
     const dur = 1.5;
     const startAt = fromBoardFields(body.dayOffset, body.hour);
+    const coords = await geocodeAddress(place);
 
     const id = randomUUID();
     const { rows } = await query(
       `INSERT INTO "Event"
-         (id, "hostId", emoji, title, location, note, "timeLabel", "startAt", visibility, status, spots, "durationHours")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'now', $10, $11)
+         (id, "hostId", emoji, title, location, note, "timeLabel", "startAt", visibility, status, spots, "durationHours", lat, lng)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'now', $10, $11, $12, $13)
        RETURNING *`,
-      [id, user.id, emoji, what, place, note, what, startAt, visibility, spots, dur]
+      [id, user.id, emoji, what, place, note, what, startAt, visibility, spots, dur, coords?.lat ?? null, coords?.lng ?? null]
     );
 
     // Notify friends there's something new on the board — only the ones who
@@ -188,6 +192,8 @@ export async function POST(request) {
           day: dayOffset > 0 ? dayLabelFor(dayOffset) : undefined,
           spots: e.spots,
           visibility: e.visibility,
+          lat: e.lat ?? undefined,
+          lng: e.lng ?? undefined,
           joined: [],
           youIn: true,
           postedAgo: "posted just now"
