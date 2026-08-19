@@ -10,10 +10,9 @@ import { COUNTRY_CODES } from './lib/countryCodes.js';
 const ACCENT = '#ff8a5c';
 const RESEND_COOLDOWN_SECONDS = 60;
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
-const INVITE_LINK = 'https://looped.up.railway.app/';
 
 function emptyComposerFields() {
-  return { cTitle: '', cPlace: '', cNote: '', cDate: '0', cTime: '', cSpots: '0', cEmoji: '', cVisibility: 'outer', editingId: null };
+  return { cTitle: '', cPlace: '', cNote: '', cDate: '0', cTime: '', cSpots: '0', cEmoji: '', cVisibility: 'everyone', editingId: null };
 }
 
 function initialState() {
@@ -21,10 +20,9 @@ function initialState() {
     view: 'loading', // 'loading' | 'onboarding' | 'today' | 'friends' | 'pings' | 'you'
     name: '', last: '', phone: '', bio: '',
     onboarded: false,
-    obStep: 1, // 1 = phone number, 2 = verify code, 3 = name (new accounts only), 4 = suggested friends
+    obStep: 1, // 1 = name+phone, 2 = verify code, 3 = suggested friends
     obFirst: '', obLast: '', obPhone: '', obCountry: '+1',
     obCode: '', codeError: '', sendingCode: false, verifying: false, resendCooldown: 0, resending: false,
-    creatingAccount: false,
     obSuggested: [], obAdded: [],
     friendsRaw: [],
     events: [],
@@ -32,14 +30,12 @@ function initialState() {
     composerOpen: false,
     ...emptyComposerFields(),
     toast: '',
-    friendQuery: '',
+    friendQuery: '', contactQuery: '', contactsLinked: false,
     skyOverride: 'auto',
     previewHour: null,
     detailId: null,
     statusFriendId: null,
     confirmRemoveId: null,
-    confirmDeleteAccount: false,
-    deletingAccount: false,
     nowTick: Date.now()
   };
 }
@@ -74,22 +70,15 @@ export function useLoopedApp() {
   }
 
   // ---------- load session on mount + live clock ----------
-  // Shared by: (a) opening the app with an existing session, and (b) a
-  // returning user completing phone verification during onboarding — both
-  // just need "we know who's signed in now, go load their board."
-  async function enterApp() {
-    const me = await api.me();
-    setState({
-      name: me.firstName, last: me.lastName || '', phone: me.phone || '', bio: me.bio || '',
-      onboarded: true, view: 'today'
-    });
-    await loadBoard();
-  }
-
   useEffect(() => {
     (async () => {
       try {
-        await enterApp();
+        const me = await api.me();
+        setState({
+          name: me.firstName, last: me.lastName || '', phone: me.phone || '', bio: me.bio || '',
+          onboarded: true, view: 'today'
+        });
+        await loadBoard();
       } catch (e) {
         // Not signed in (no/invalid session cookie) — show onboarding.
         setState({ view: 'onboarding' });
@@ -108,21 +97,16 @@ export function useLoopedApp() {
     }
   }
 
-  // ---------- background refresh, so new/updated events, friends, and
-  // pings show up on their own instead of requiring a manual page reload
-  // ----------
+  // ---------- background refresh, so new/updated events from friends show
+  // up on their own instead of requiring a manual page reload ----------
   // Silent on purpose (no toast on failure) since this runs unattended —
   // a dropped poll shouldn't interrupt whatever the person is doing. Skips
   // the merge entirely while the composer is open or a post is mid-submit
   // so it can never stomp on text someone is actively typing.
   async function refreshEvents() {
     try {
-      const [events, friendsRaw, pingsRaw] = await Promise.all([
-        api.events(),
-        api.friends(),
-        api.pings()
-      ]);
-      setStateRaw(prev => (prev.composerOpen ? prev : { ...prev, events, friendsRaw, pingsRaw }));
+      const events = await api.events();
+      setStateRaw(prev => (prev.composerOpen ? prev : { ...prev, events }));
     } catch (e) {
       // ignore — next poll (or the next foreground/visibility refresh) will
       // pick it up
@@ -199,7 +183,7 @@ export function useLoopedApp() {
   }
 
   async function toggleJoin(a) {
-    const whoName = a.isYours ? name : (friendById(a.who) ? friendById(a.who).name : a.who);
+    const whoName = a.isYours ? 'you' : (friendById(a.who) ? friendById(a.who).name : a.who);
     if (a.youIn) {
       patchEvent(a.id, { youIn: false });
       toast('no worries, backed out quietly');
@@ -249,7 +233,7 @@ export function useLoopedApp() {
     const youIn = !!a.youIn;
     const joinedCount = a.joined.length + (youIn ? 1 : 0);
     const fr = friendById(a.who);
-    const whoName = a.isYours ? name : (fr ? fr.name : a.who);
+    const whoName = a.isYours ? 'you' : (fr ? fr.name : a.who);
     const wrapped = st === 'wrapped';
     const spotsLeft = a.spots ? a.spots - joinedCount : 0;
     const full = !!a.spots && spotsLeft <= 0 && !youIn;
@@ -338,7 +322,7 @@ export function useLoopedApp() {
     return {
       id: a.id,
       title: a.what + ' ' + a.emoji,
-      meta: (a.isYours ? name : (fr ? fr.name : a.who)) + ' · ' + a.day + ' ' + fmtTime(a.hour) + ' · 📍 ' + a.place,
+      meta: (a.isYours ? 'you' : (fr ? fr.name : a.who)) + ' · ' + a.day + ' ' + fmtTime(a.hour) + ' · 📍 ' + a.place,
       note: a.note,
       color: a.isYours ? '#ffb37e' : (fr ? fr.color : '#ccc'),
       initial: (a.isYours ? name : (fr ? fr.first : a.who))[0].toUpperCase(),
@@ -361,11 +345,7 @@ export function useLoopedApp() {
 
   const pings = S.pingsRaw.map(p => {
     const f = p.who ? friendById(p.who) : null;
-    // Once accepted/declined, the backend clears the ping's cta (action) so
-    // it stops rendering as an actionable request — requesterId stays set
-    // (it's still a friend-request-shaped ping for the avatar/styling), but
-    // the accept/decline buttons only show while it's still pending.
-    const isFriendRequest = !!p.requesterId && !!p.action;
+    const isFriendRequest = !!p.requesterId;
     return {
       key: p.id,
       text: p.text, when: p.when,
@@ -386,16 +366,8 @@ export function useLoopedApp() {
         try { await api.pingAction(p.id); } catch (e) { await loadBoard(); }
       },
       // ---------- friend request: accept / decline ----------
-      // Both rewrite the ping in place (text + clearing action) instead of
-      // removing it, so the Pings tab keeps a visible record of what you
-      // decided rather than the request just disappearing.
       accept: async () => {
-        const requesterName = p.text.replace(/ wants to be friends$/i, '').toLowerCase();
-        setState(prev => ({
-          pingsRaw: prev.pingsRaw.map(x => (x.id === p.id
-            ? { ...x, unread: false, action: null, text: `you accepted ${requesterName}'s friend request` }
-            : x))
-        }));
+        setState(prev => ({ pingsRaw: prev.pingsRaw.filter(x => x.id !== p.id) }));
         toast("you're friends now 🎉");
         try {
           await api.pingAction(p.id, 'accept');
@@ -406,15 +378,9 @@ export function useLoopedApp() {
         }
       },
       decline: async () => {
-        const requesterName = p.text.replace(/ wants to be friends$/i, '').toLowerCase();
-        setState(prev => ({
-          pingsRaw: prev.pingsRaw.map(x => (x.id === p.id
-            ? { ...x, unread: false, action: null, text: `you declined ${requesterName}'s friend request` }
-            : x))
-        }));
+        setState(prev => ({ pingsRaw: prev.pingsRaw.filter(x => x.id !== p.id) }));
         try {
           await api.pingAction(p.id, 'decline');
-          await loadBoard();
         } catch (e) {
           await loadBoard();
           toast("couldn't decline that — try again 🙏");
@@ -495,13 +461,10 @@ export function useLoopedApp() {
           confirmRemoveId: null
         }));
         toast(removedName + ' removed from your friends');
-        api.removeFriend(id)
-          .then(() => loadBoard()) // pulls the fresh events/pings once their
-          // EventJoins and pings tied to this friendship are gone server-side
-          .catch(async () => {
-            toast("couldn't remove that friend — try again 🙏");
-            await loadBoard();
-          });
+        api.removeFriend(id).catch(async () => {
+          toast("couldn't remove that friend — try again 🙏");
+          await loadBoard();
+        });
       },
       close: () => setState({ statusFriendId: null, confirmRemoveId: null })
     };
@@ -512,9 +475,7 @@ export function useLoopedApp() {
     const added = S.obAdded.includes(f.id);
     return {
       id: f.id, name: fmtName(f.first, f.last), bio: f.bio, color: f.color, initial: f.first[0].toUpperCase(),
-      // Requesting, not adding — they only become a friend once they accept,
-      // so the button reflects a pending ask rather than a done deal.
-      btnLabel: added ? 'requested ✓' : '+ add',
+      btnLabel: added ? 'added ✓' : '+ add',
       btnBg: added ? '#3a2c28' : 'rgba(58,44,40,.08)',
       btnColor: added ? '#ffe9c2' : '#3a2c28',
       toggle: async () => {
@@ -526,7 +487,7 @@ export function useLoopedApp() {
       }
     };
   });
-  const obDots = [1, 2, 3, 4].map(n => ({ bg: n === S.obStep ? '#3a2c28' : 'rgba(58,44,40,.2)' }));
+  const obDots = [1, 2, 3].map(n => ({ bg: n === S.obStep ? '#3a2c28' : 'rgba(58,44,40,.2)' }));
 
   // Combines the selected country code with the digits typed in the phone
   // field into a proper E.164 number (e.g. "+1" + "(347) 544-8544" ->
@@ -536,11 +497,9 @@ export function useLoopedApp() {
     return S.obCountry + digits;
   }
 
-  // Step 1 (phone number only) -> sends the SMS code via Twilio Verify,
-  // then moves to step 2. No name involved yet — we don't know if this
-  // number is a returning user or a brand new one until the code checks
-  // out.
+  // Step 1 -> sends the SMS code via Twilio Verify, then moves to step 2.
   async function obNextFn() {
+    if (!S.obFirst.trim()) { toast('tell us your first name 🙂'); return; }
     const digits = S.obPhone.replace(/\D/g, '');
     if (digits.length < 6) { toast('add a valid phone number 📱'); return; }
     setState({ sendingCode: true });
@@ -555,46 +514,23 @@ export function useLoopedApp() {
     }
   }
 
-  // Step 2 (verify code) -> checks the code with Twilio, then branches:
-  //   - returning number: the check itself already logged them in
-  //     (backend set the session cookie), so just load their app and skip
-  //     straight past the name/suggested-friends steps entirely
-  //   - brand new number: move on to step 3, where a name gets collected
-  //     and the account actually gets created
+  // Step 2 -> checks the code with Twilio, and only THEN creates the
+  // account (POST /api/signup, which is now gated behind verification).
   async function verifyCodeFn() {
     const code = S.obCode.trim();
     if (code.length !== 6) { setState({ codeError: 'enter the 6-digit code' }); return; }
     setState({ verifying: true, codeError: '' });
     try {
-      const result = await api.checkVerificationCode(fullPhone(), code);
-      if (!result.approved) {
+      const { approved } = await api.checkVerificationCode(fullPhone(), code);
+      if (!approved) {
         setState({ verifying: false, codeError: "that code didn't match — try again" });
         return;
       }
-      if (result.accountExists) {
-        await enterApp();
-        toast(`welcome back, ${result.firstName} 👋`);
-        return;
-      }
-      setState({ obStep: 3, verifying: false });
-    } catch (e) {
-      setState({ verifying: false, codeError: e.message || 'something went wrong — try again' });
-    }
-  }
-
-  // Step 3 (name — new accounts only) -> this is what actually creates the
-  // account, now that we have a name to create it with (POST /api/signup,
-  // still gated behind the verification that already happened in step 2).
-  async function obCreateAccountFn() {
-    if (!S.obFirst.trim()) { toast('tell us your first name 🙂'); return; }
-    setState({ creatingAccount: true });
-    try {
       await api.signup(S.obFirst.trim(), S.obLast.trim(), fullPhone());
       const obSuggested = await api.discoverUsers();
-      setState({ obSuggested, obStep: 4, creatingAccount: false });
+      setState({ obSuggested, obStep: 3, verifying: false });
     } catch (e) {
-      setState({ creatingAccount: false });
-      toast(e.message || "couldn't create your account — try again 🙏");
+      setState({ verifying: false, codeError: e.message || 'something went wrong — try again' });
     }
   }
 
@@ -624,6 +560,7 @@ export function useLoopedApp() {
     pick: () => setState({ cEmoji: S.cEmoji === e ? '' : e })
   }));
   const visibilityOptions = [
+    { value: 'everyone', label: 'everyone on looped' },
     { value: 'outer', label: 'my friends (outer + inner circle)' },
     { value: 'inner', label: 'inner circle only 💛' }
   ];
@@ -663,7 +600,7 @@ export function useLoopedApp() {
       dayOffset,
       hour: parseFloat(validTime || '20'),
       spots: parseInt(S.cSpots, 10) || 0,
-      visibility: S.cVisibility || 'outer'
+      visibility: S.cVisibility || 'everyone'
     };
     const editingId = S.editingId;
     setState({ composerOpen: false, ...emptyComposerFields(), view: 'today' });
@@ -721,16 +658,13 @@ export function useLoopedApp() {
   if (detailActivity) {
     const a = detailActivity;
     const fr = friendById(a.who);
-    const whoName = a.isYours ? name : (fr ? fr.name : a.who);
+    const whoName = a.isYours ? 'you' : (fr ? fr.name : a.who);
     const youIn = !!a.youIn;
     const joinedIds = a.joined || [];
     const joinedCount = joinedIds.length + (youIn ? 1 : 0);
     const spotsLeft = a.spots ? a.spots - joinedCount : 0;
-    const goingNames = joinedIds.map(j => {
-      const f = friendById(j);
-      return { name: f ? f.name : j, isYou: false, color: f ? f.color : 'rgba(58,44,40,.2)' };
-    });
-    if (youIn) goingNames.push({ name, isYou: true, color: '#ffb37e' });
+    const goingNames = joinedIds.map(j => { const f = friendById(j); return f ? f.name : j; });
+    if (youIn) goingNames.push('you');
     const timeRange = (a.day ? a.day + ' · ' : 'today, ') + fmtTime(a.hour) + ' – ' + fmtTime(a.hour + (a.dur || 1.5));
     const full = a.spots && spotsLeft <= 0 && !youIn;
 
@@ -745,7 +679,7 @@ export function useLoopedApp() {
 
     detail = {
       color: a.isYours ? '#ffb37e' : (fr ? fr.color : '#ccc'),
-      initial: whoName[0].toUpperCase(),
+      initial: (whoName === 'you' ? name : whoName)[0].toUpperCase(),
       who: whoName,
       whoUpper: whoName.toUpperCase(),
       postedAgo: a.postedAgo || 'posted just now',
@@ -755,12 +689,15 @@ export function useLoopedApp() {
       place: a.place,
       timeRange,
       mapEmbedUrl,
-      avatars: (goingNames.length ? goingNames : [{ name: '?', isYou: false, color: 'rgba(58,44,40,.2)' }]).slice(0, 4).map((g, i) => ({
-        color: g.isYou ? '#ffb37e' : g.color,
-        initial: g.name === '?' ? '·' : g.name[0].toUpperCase(),
-        ml: i === 0 ? '0' : '-8px'
-      })),
-      goingNames: goingNames.length ? goingNames.map(g => g.name).join(', ') : 'no one yet — be the first 👀',
+      avatars: (goingNames.length ? goingNames : ['?']).slice(0, 4).map((n, i) => {
+        const f = friends().find(x => x.name === n);
+        return {
+          color: n === 'you' ? '#ffb37e' : (f ? f.color : 'rgba(58,44,40,.2)'),
+          initial: n === '?' ? '·' : n[0].toUpperCase(),
+          ml: i === 0 ? '0' : '-8px'
+        };
+      }),
+      goingNames: goingNames.length ? goingNames.join(', ') : 'no one yet — be the first 👀',
       spotsLine: a.spots ? (spotsLeft > 0 ? spotsLeft + (spotsLeft === 1 ? ' spot open' : ' spots open') : 'full house') : 'open to everyone',
       distance: a.dist || 'distance unknown',
       showJoin: !a.isYours,
@@ -788,11 +725,7 @@ export function useLoopedApp() {
           cTime: String(a.hour),
           cSpots: String(a.spots || 0),
           cEmoji: a.emoji,
-          // 'everyone' no longer has a matching <option> now that it's
-          // removed from the picker — fall back to 'outer' so editing an
-          // older event built before this change doesn't leave the select
-          // on a blank/invalid value.
-          cVisibility: (a.visibility && a.visibility !== 'everyone') ? a.visibility : 'outer'
+          cVisibility: a.visibility || 'everyone'
         });
       }
     };
@@ -808,7 +741,6 @@ export function useLoopedApp() {
       step1: S.obStep === 1,
       stepVerify: S.obStep === 2,
       step3: S.obStep === 3,
-      step4: S.obStep === 4,
       obFirst: S.obFirst, obLast: S.obLast, obPhone: S.obPhone,
       obCountry: S.obCountry,
       setObCountry: (e) => setState({ obCountry: e.target.value }),
@@ -819,7 +751,7 @@ export function useLoopedApp() {
       setObFirst: (e) => setState({ obFirst: e.target.value }),
       setObLast: (e) => setState({ obLast: e.target.value }),
       setObPhone: (e) => setState({ obPhone: e.target.value }),
-      phoneKeyDown: (e) => { if (e.key === 'Enter') obNextFn(); },
+      nameKeyDown: (e) => { if (e.key === 'Enter') obNextFn(); },
       next: obNextFn,
       sendingCode: S.sendingCode,
 
@@ -833,17 +765,10 @@ export function useLoopedApp() {
       resendCooldown: S.resendCooldown,
       resending: S.resending,
 
-      nameKeyDown: (e) => { if (e.key === 'Enter') obCreateAccountFn(); },
-      createAccount: obCreateAccountFn,
-      creatingAccount: S.creatingAccount,
-
       friendsList: obFriendsList,
       dots: obDots,
       finish: async () => {
-        setState({
-          onboarded: true, view: 'today',
-          name: S.obFirst.trim(), last: S.obLast.trim()
-        });
+        setState({ onboarded: true, view: 'today' });
         toast('welcome to looped 💛 here\'s today');
         await loadBoard();
       }
@@ -877,8 +802,12 @@ export function useLoopedApp() {
       setQuery: (e) => setState({ friendQuery: e.target.value }),
       inviteKeyDown: (e) => { if (e.key === 'Enter') doInvite(); },
       sendInvite: () => doInvite(),
-      copyInviteLink: () => copyInviteLink(),
-      countryOptions: COUNTRY_CODES,
+      contactsLinked: S.contactsLinked,
+      linkContacts: () => { setState({ contactsLinked: true }); toast('contacts linked 📇 search friends by name'); },
+      contactQuery: S.contactQuery,
+      setContactQuery: (e) => setState({ contactQuery: e.target.value }),
+      searchContacts: () => doSearch(),
+      searchKeyDown: (e) => { if (e.key === 'Enter') doSearch(); },
       cards: friendCards,
       you: { initial: (name[0] || 'y').toUpperCase(), color: '#ffb37e', avatarUrl: null },
       status: friendStatus || { open: false }
@@ -907,28 +836,6 @@ export function useLoopedApp() {
         try { await api.logout(); } catch (e) { /* ignore */ }
         setStateRaw(initialState());
         setState({ view: 'onboarding' });
-      },
-      // Two-tap confirm, same pattern as removing a friend — first tap arms
-      // it (button relabels itself as a real confirmation), a second tap
-      // actually deletes. Anything else (navigating away, etc.) just leaves
-      // it armed until they either confirm or the page reloads; harmless
-      // either way since nothing happens without that second tap.
-      deleteArmed: S.confirmDeleteAccount,
-      deletingAccount: S.deletingAccount,
-      deleteAccount: async () => {
-        if (!S.confirmDeleteAccount) {
-          setState({ confirmDeleteAccount: true });
-          return;
-        }
-        setState({ deletingAccount: true });
-        try {
-          await api.deleteAccount();
-          setStateRaw(initialState());
-          setState({ view: 'onboarding' });
-        } catch (e) {
-          setState({ deletingAccount: false, confirmDeleteAccount: false });
-          toast("couldn't delete your account — try again 🙏");
-        }
       }
     },
 
@@ -971,49 +878,13 @@ export function useLoopedApp() {
     const phone = normalizeInvitePhone(q);
     setState({ friendQuery: '' });
     api.inviteFriend(phone)
-      .then(res => toast(res.invited ? 'invite sent to ' + q + ' ✉️' : (res.message || 'invite sent')))
+      .then(res => toast(res.invited ? 'invite texted to ' + q + ' ✉️' : (res.message || 'invite sent')))
       .catch(() => toast("couldn't send that invite 🙏"));
   }
-  // Copying is surprisingly unreliable across mobile browsers/WebViews, so
-  // this tries three tiers in order and only reports failure if every one
-  // of them didn't work:
-  //   1. the modern async clipboard API
-  //   2. the legacy execCommand('copy') trick (works in places the async
-  //      API is blocked, e.g. some in-app browsers/WebViews/iframes)
-  //   3. a prompt() with the link pre-selected, so it can always be copied
-  //      by hand even if the browser blocks programmatic clipboard access
-  //      entirely
-  async function copyInviteLink() {
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(INVITE_LINK);
-        toast('invite link copied 🔗');
-        return;
-      }
-    } catch (e) {
-      // fall through to the legacy method below rather than giving up
-    }
-
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = INVITE_LINK;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(ta);
-      if (ok) {
-        toast('invite link copied 🔗');
-        return;
-      }
-    } catch (e) {
-      // fall through to the manual fallback below
-    }
-
-    // Last resort — every programmatic method got blocked, so hand the
-    // link to them directly instead of just failing.
-    window.prompt('copy this invite link:', INVITE_LINK);
+  function doSearch() {
+    const q = S.contactQuery.trim();
+    if (!q) { toast('type a name to search 🙂'); return; }
+    toast('searching contacts for "' + q + '"…');
+    setState({ contactQuery: '' });
   }
 }
