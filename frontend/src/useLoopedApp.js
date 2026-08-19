@@ -98,7 +98,17 @@ export function useLoopedApp() {
   async function loadBoard() {
     try {
       const [friendsRaw, events, pingsRaw] = await Promise.all([api.friends(), api.events(), api.pings()]);
-      setState({ friendsRaw, events, pingsRaw });
+      // Defensive: if any of these ever comes back as something other than
+      // an array (empty response body, unexpected shape, a transient
+      // backend hiccup), fall back to [] rather than letting `undefined`
+      // or `null` propagate into state — every screen in the app assumes
+      // these are arrays and calls .map()/.filter() on them directly, so a
+      // single bad response here was enough to white-screen the whole app.
+      setState({
+        friendsRaw: Array.isArray(friendsRaw) ? friendsRaw : [],
+        events: Array.isArray(events) ? events : [],
+        pingsRaw: Array.isArray(pingsRaw) ? pingsRaw : []
+      });
     } catch (e) {
       toast("couldn't load your board — check your connection 📡");
     }
@@ -143,7 +153,7 @@ export function useLoopedApp() {
 
   // ---------- friends (from the API instead of hardcoded mock data) ----------
   function friends() {
-    return state.friendsRaw.map(f => ({ ...f, name: fmtName(f.first, f.last) }));
+    return (state.friendsRaw || []).map(f => ({ ...f, name: fmtName(f.first, f.last) }));
   }
   function friendById(id) {
     return friends().find(f => f.id === id);
