@@ -2,31 +2,7 @@
 // SAVE TO: frontend/src/components/EventMap.jsx
 // ====================================================
 import { useEffect, useRef } from 'react';
-
-const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
-
-// Loads the Google Maps JS API script exactly once per page load, no
-// matter how many times this component mounts (e.g. opening several
-// different event detail cards in a row all reuse the same script tag /
-// loader promise instead of re-injecting <script> repeatedly).
-let loaderPromise = null;
-function loadGoogleMaps() {
-  if (loaderPromise) return loaderPromise;
-  loaderPromise = new Promise((resolve, reject) => {
-    if (window.google?.maps?.importLibrary) {
-      resolve(window.google.maps);
-      return;
-    }
-    const script = document.createElement('script');
-    const params = new URLSearchParams({ key: GOOGLE_MAPS_KEY, v: 'weekly', libraries: 'places,marker' });
-    script.src = `https://maps.googleapis.com/maps/api/js?${params}`;
-    script.async = true;
-    script.onerror = () => { loaderPromise = null; reject(new Error('failed to load Google Maps')); };
-    script.onload = () => resolve(window.google.maps);
-    document.head.appendChild(script);
-  });
-  return loaderPromise;
-}
+import { GOOGLE_MAPS_KEY, loadGoogleMaps } from '../lib/googleMaps.js';
 
 // Renders a small map centered on `place` (free-text address, e.g.
 // "Blue Bottle Coffee, San Francisco"), using the Places "text search" +
