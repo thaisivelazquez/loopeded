@@ -11,6 +11,26 @@ const ACCENT = '#ff8a5c';
 const RESEND_COOLDOWN_SECONDS = 60;
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
+// Straight-line ("as the crow flies") distance in miles between two
+// lat/lng points, via the haversine formula. Good enough for a rough
+// "X mi away" label — not turn-by-turn walking/driving distance.
+function milesBetween(lat1, lng1, lat2, lng2) {
+  const R = 3958.8; // earth radius in miles
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDistance(miles) {
+  if (miles < 0.1) return 'just around the corner';
+  if (miles < 10) return `${miles.toFixed(1)} mi away`;
+  return `${Math.round(miles)} mi away`;
+}
+
 function emptyComposerFields() {
   return { cTitle: '', cPlace: '', cNote: '', cDate: '0', cTime: '', cSpots: '0', cEmoji: '', cVisibility: 'everyone', editingId: null };
 }
@@ -43,6 +63,7 @@ function initialState() {
     statusFriendId: null,
     confirmRemoveId: null,
     confirmDeleteAccount: false,
+    myCoords: null,
     nowTick: Date.now()
   };
 }
@@ -63,6 +84,22 @@ export function useLoopedApp() {
   }
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
   useEffect(() => () => { if (cooldownTimer.current) clearInterval(cooldownTimer.current); }, []);
+
+  // ---------- viewer's own location, for "X mi away" on event cards ----------
+  // Asked for once, quietly, after we know the person is signed in — never
+  // blocks anything else in the app. If they deny the permission prompt, or
+  // their browser doesn't support geolocation, we just stay with
+  // "distance unknown" everywhere; nothing else in the app depends on this.
+  useEffect(() => {
+    if (!state.onboarded || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setState({ myCoords: { lat: pos.coords.latitude, lng: pos.coords.longitude } }),
+      () => {
+        // denied, timed out, or unavailable — silently ignore
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 10 * 60 * 1000 }
+    );
+  }, [state.onboarded]);
 
   function startResendCooldown() {
     setState({ resendCooldown: RESEND_COOLDOWN_SECONDS });
@@ -765,7 +802,9 @@ export function useLoopedApp() {
       }),
       goingNames: goingNames.length ? goingNames.join(', ') : 'no one yet — be the first 👀',
       spotsLine: a.spots ? (spotsLeft > 0 ? spotsLeft + (spotsLeft === 1 ? ' spot open' : ' spots open') : 'full house') : 'open to everyone',
-      distance: a.dist || 'distance unknown',
+      distance: (S.myCoords && a.lat != null && a.lng != null)
+        ? formatDistance(milesBetween(S.myCoords.lat, S.myCoords.lng, a.lat, a.lng))
+        : (a.dist || 'distance unknown'),
       showJoin: !a.isYours,
       isYours: !!a.isYours,
       btnLabel: youIn ? 'going ✓' : (full ? 'ask to join' : "i'll be there!"),
