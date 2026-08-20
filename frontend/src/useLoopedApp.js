@@ -876,6 +876,16 @@ export function useLoopedApp() {
       setQuery: (e) => setState({ friendQuery: e.target.value }),
       inviteKeyDown: (e) => { if (e.key === 'Enter') doInvite(); },
       sendInvite: () => doInvite(),
+      countryOptions: COUNTRY_CODES,
+      copyInviteLink: async () => {
+        const link = window.location.origin;
+        try {
+          await navigator.clipboard.writeText(link);
+          toast('invite link copied 🔗');
+        } catch (e) {
+          toast("couldn't copy that — try again 🙏");
+        }
+      },
       contactsLinked: S.contactsLinked,
       linkContacts: () => { setState({ contactsLinked: true }); toast('contacts linked 📇 search friends by name'); },
       contactQuery: S.contactQuery,
