@@ -32,7 +32,7 @@ function formatDistance(miles) {
 }
 
 function emptyComposerFields() {
-  return { cTitle: '', cPlace: '', cNote: '', cDate: '0', cTime: '', cSpots: '0', cEmoji: '', cVisibility: 'everyone', editingId: null };
+  return { cTitle: '', cPlace: '', cNote: '', cDate: '0', cTime: '', cSpots: '0', cEmoji: '', cVisibility: 'outer', editingId: null };
 }
 
 function initialState() {
@@ -529,7 +529,9 @@ export function useLoopedApp() {
     const added = S.obAdded.includes(f.id);
     return {
       id: f.id, name: fmtName(f.first, f.last), bio: f.bio, color: f.color, initial: f.first[0].toUpperCase(),
-      btnLabel: added ? 'added ✓' : '+ add',
+      // "requested" not "added" — this sends a friend request now (they
+      // have to accept it), it doesn't create the friendship outright.
+      btnLabel: added ? 'requested ✓' : '+ add',
       btnBg: added ? '#3a2c28' : 'rgba(58,44,40,.08)',
       btnColor: added ? '#ffe9c2' : '#3a2c28',
       toggle: async () => {
@@ -663,7 +665,6 @@ export function useLoopedApp() {
     pick: () => setState({ cEmoji: S.cEmoji === e ? '' : e })
   }));
   const visibilityOptions = [
-    { value: 'everyone', label: 'everyone on looped' },
     { value: 'outer', label: 'my friends (outer + inner circle)' },
     { value: 'inner', label: 'inner circle only 💛' }
   ];
@@ -703,7 +704,7 @@ export function useLoopedApp() {
       dayOffset,
       hour: parseFloat(validTime || '20'),
       spots: parseInt(S.cSpots, 10) || 0,
-      visibility: S.cVisibility || 'everyone'
+      visibility: S.cVisibility || 'outer'
     };
     const editingId = S.editingId;
     setState({ composerOpen: false, ...emptyComposerFields(), view: 'today' });
@@ -830,7 +831,7 @@ export function useLoopedApp() {
           cTime: String(a.hour),
           cSpots: String(a.spots || 0),
           cEmoji: a.emoji,
-          cVisibility: a.visibility || 'everyone'
+          cVisibility: a.visibility === 'inner' ? 'inner' : 'outer'
         });
       }
     };

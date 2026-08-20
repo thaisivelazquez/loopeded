@@ -12,12 +12,14 @@ export async function OPTIONS() {
   return corsPreflight();
 }
 
-// POST /api/friends/:id — "add" a suggested user from onboarding.
-// Same request/accept flow as the phone-invite path (POST /api/friends):
-// this sends a pending request, it does NOT make you friends on the spot.
-// The other person has to actually hit "accept" on the resulting ping
-// before either of you show up in each other's friends list — nobody
-// should end up someone's friend without agreeing to it.
+// POST /api/friends/:id — send a friend request to a suggested user from
+// onboarding. This now goes through the SAME mutual pending -> accept flow
+// as the phone-invite path (POST /api/friends) — it used to create an
+// instantly-'accepted' friendship with no consent from the other person at
+// all, which meant anyone could put themselves in your outer circle
+// without you ever agreeing to it. Now it just sends a request; the other
+// person has to accept it (via the ping's accept/decline buttons) before
+// the friendship — and therefore any circle placement — exists at all.
 export async function POST(request, { params }) {
   try {
     const user = await requireCurrentUser(request);
@@ -37,7 +39,7 @@ export async function POST(request, { params }) {
 
     // Only ping on a brand-new request — ON CONFLICT DO NOTHING means no
     // row comes back if you two already have a pending or accepted
-    // Friendship, so this won't spam a repeat "add" tap.
+    // Friendship, so this won't re-notify on a repeat tap.
     if (friendshipRows[0]) {
       await notifyUser({
         recipientId: id,
@@ -85,40 +87,13 @@ export async function PATCH(request, { params }) {
   }
 }
 
-// DELETE /api/friends/:id — unfriend (also used to cancel a pending request).
-// A Friendship row is a single record shared by both people, so deleting it
-// already ends the friendship for both sides at once — there's no separate
-// "their side" left dangling. But being unfriended should mean fully
-// disentangled, not just delisted, so this also:
-//   - pulls each of you out of any event the other is hosting (an ex-friend
-//     shouldn't linger on your guest list, or you on theirs)
-//   - clears pings between you: the friend-request ping itself, plus any
-//     event notifications tied to events either of you hosts, so nothing
-//     from this friendship keeps surfacing after it's over
+// DELETE /api/friends/:id — unadd (used by the toggle in onboarding step 2).
 export async function DELETE(request, { params }) {
   try {
     const user = await requireCurrentUser(request);
     const { id } = params;
     const [userAId, userBId] = [user.id, id].sort();
-
-    await query(
-      `DELETE FROM "EventJoin"
-        WHERE ("userId" = $1 AND "eventId" IN (SELECT id FROM "Event" WHERE "hostId" = $2))
-           OR ("userId" = $2 AND "eventId" IN (SELECT id FROM "Event" WHERE "hostId" = $1))`,
-      [user.id, id]
-    );
-
-    await query(
-      `DELETE FROM "Ping"
-        WHERE ("recipientId" = $1 AND "requesterId" = $2)
-           OR ("recipientId" = $2 AND "requesterId" = $1)
-           OR ("recipientId" = $1 AND "eventId" IN (SELECT id FROM "Event" WHERE "hostId" = $2))
-           OR ("recipientId" = $2 AND "eventId" IN (SELECT id FROM "Event" WHERE "hostId" = $1))`,
-      [user.id, id]
-    );
-
     await query(`DELETE FROM "Friendship" WHERE "userAId" = $1 AND "userBId" = $2`, [userAId, userBId]);
-
     return withCors(NextResponse.json({ added: false }));
   } catch (err) {
     return jsonError(err);
