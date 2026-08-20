@@ -1,6 +1,8 @@
 // ====================================================
 // SAVE TO: frontend/src/components/EventDetail.jsx
 // ====================================================
+import EventMap from './EventMap.jsx';
+
 export default function EventDetail({ detail }) {
   if (!detail.open) return null;
   return (
@@ -65,17 +67,7 @@ export default function EventDetail({ detail }) {
         <div style={{ borderTop: '1px solid rgba(58,44,40,.15)', margin: '16px 0 14px' }} />
 
         <div style={{ font: '700 11px Karla,sans-serif', letterSpacing: '.08em', color: 'rgba(58,44,40,.5)' }}>GETTING THERE</div>
-        {detail.mapEmbedUrl ? (
-          <iframe
-            title="event location"
-            src={detail.mapEmbedUrl}
-            style={{ marginTop: 9, width: '100%', height: 150, border: 0, borderRadius: 14 }}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-        ) : (
-          <div style={{ marginTop: 9, height: 110, borderRadius: 14, background: 'rgba(58,44,40,.08)', display: 'grid', placeItems: 'center', font: '600 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.45)' }}>map preview 🗺️</div>
-        )}
+        <EventMap place={detail.place} />
         <div style={{ textAlign: 'center', font: '600 12px Karla,sans-serif', color: 'rgba(58,44,40,.55)', marginTop: 7 }}>{detail.distance}</div>
 
         {detail.showJoin && (
