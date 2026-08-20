@@ -20,10 +20,7 @@ export default function EventDetail({ detail }) {
           borderRadius: 22, animation: 'loopPop .35s ease'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '-8px -6px 4px -2px' }}>
-          {detail.isYours ? (
-            <button onClick={detail.edit} style={{ cursor: 'pointer', border: 'none', background: 'rgba(58,44,40,.08)', color: '#3a2c28', font: '800 12px Karla,sans-serif', padding: '7px 12px', borderRadius: 999 }}>✏️ edit</button>
-          ) : <span />}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', margin: '-8px -6px 4px -2px' }}>
           <button onClick={detail.close} style={{ cursor: 'pointer', border: 'none', background: 'rgba(58,44,40,.08)', color: '#3a2c28', font: '800 13px Nunito,sans-serif', width: 28, height: 28, borderRadius: '50%' }}>✕</button>
         </div>
 
@@ -79,7 +76,10 @@ export default function EventDetail({ detail }) {
           </>
         )}
         {detail.isYours && (
-          <button onClick={detail.cancel} style={{ cursor: 'pointer', display: 'block', width: '100%', border: '1.5px solid rgba(58,44,40,.25)', background: 'none', color: 'rgba(58,44,40,.7)', font: '800 15px Nunito,sans-serif', padding: 14, borderRadius: 999, marginTop: 20 }}>call it off</button>
+          <>
+            <button onClick={detail.edit} style={{ cursor: 'pointer', display: 'block', width: '100%', border: 'none', background: 'rgba(58,44,40,.08)', color: '#3a2c28', font: '800 15px Nunito,sans-serif', padding: 14, borderRadius: 999, marginTop: 20 }}>✏️ edit</button>
+            <button onClick={detail.cancel} style={{ cursor: 'pointer', display: 'block', width: '100%', border: '1.5px solid rgba(58,44,40,.25)', background: 'none', color: 'rgba(58,44,40,.7)', font: '800 15px Nunito,sans-serif', padding: 14, borderRadius: 999, marginTop: 10 }}>call it off</button>
+          </>
         )}
       </div>
     </div>
