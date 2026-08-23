@@ -1031,7 +1031,7 @@ export function useLoopedApp() {
     const phone = normalizeInvitePhone(q);
     setState({ friendQuery: '' });
     api.inviteFriend(phone)
-      .then(res => toast(res.invited ? 'invite texted to ' + q + ' ✉️' : (res.message || 'invite sent')))
+      .then(res => toast(res.invited ? 'invite sent to ' + q + ' ✉️' : (res.message || 'invite sent')))
       .catch(() => toast("couldn't send that invite 🙏"));
   }
   function doSearch() {
