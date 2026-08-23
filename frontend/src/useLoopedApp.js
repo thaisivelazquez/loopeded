@@ -411,6 +411,15 @@ export function useLoopedApp() {
       hasAction: !!p.action && !p.going && !isFriendRequest,
       going: !!p.going,
       actionLabel: p.action,
+      // ---------- tap the notification itself: jump to the event it's
+      // about, without joining it (that's what the cta button is for) ----------
+      open: p.actId ? () => {
+        setState(prev => ({
+          pingsRaw: prev.pingsRaw.map(x => (x.id === p.id ? { ...x, unread: false } : x)),
+          detailId: p.actId
+        }));
+        if (p.unread) api.markPingRead(p.id).catch(() => {});
+      } : null,
       act: async () => {
         setState(prev => ({
           pingsRaw: prev.pingsRaw.map(x => (x.id === p.id ? { ...x, unread: false, going: true } : x))
