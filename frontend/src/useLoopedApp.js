@@ -459,7 +459,7 @@ export function useLoopedApp() {
   // Pings are real notification rows from the backend now (posted / joined /
   // asked-to-join / etc.), not client-generated from timing math.
   const unread = S.pingsRaw.filter(p => p.unread).length;
-  const tabs = [['today', 'today'], ['public', 'public'], ['friends', 'friends'], ['pings', 'pings'], ['you', 'you']];
+  const tabs = [['today', 'today'], ['friends', 'friends'], ['public', 'public'], ['pings', 'pings'], ['you', 'you']];
   const navTabs = tabs.map(([label, v]) => ({
     key: v,
     label,
