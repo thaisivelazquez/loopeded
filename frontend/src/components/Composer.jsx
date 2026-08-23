@@ -42,11 +42,6 @@ export default function Composer({ composer, accent }) {
           </select>
           <div style={{ display: 'flex', gap: 10 }}>
             <input type="time" value={composer.cTime} min={composer.cTimeMin} onChange={composer.setCTime} style={{ ...textInputStyle, flex: 1 }} />
-            <select value={composer.cSpots} onChange={composer.setCSpots} style={{ ...selectStyle, flex: 1 }}>
-              {composer.spotsOptions.map(sp => <option key={sp.value} value={sp.value}>{sp.label}</option>)}
-            </select>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <input
               type="time"
               value={composer.cEndTime}
@@ -55,10 +50,15 @@ export default function Composer({ composer, accent }) {
               onChange={composer.setCEndTime}
               style={{ ...textInputStyle, flex: 1, opacity: composer.cNoEndTime ? 0.5 : 1 }}
             />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, font: '600 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.7)', flex: 'none', cursor: 'pointer' }}>
               <input type="checkbox" checked={composer.cNoEndTime} onChange={composer.toggleNoEndTime} />
               no end time
             </label>
+            <select value={composer.cSpots} onChange={composer.setCSpots} style={{ ...selectStyle, flex: 1 }}>
+              {composer.spotsOptions.map(sp => <option key={sp.value} value={sp.value}>{sp.label}</option>)}
+            </select>
           </div>
           {composer.isPublic ? (
             // Public posts are always visible to everyone on the app — there's
