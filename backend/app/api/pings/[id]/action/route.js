@@ -1,57 +1,98 @@
 // ====================================================
-// SAVE TO: backend/app/api/pings/[id]/route.js
+// SAVE TO: backend/app/api/pings/[id]/action/route.js
 // ====================================================
 import { NextResponse } from "next/server";
-import { query } from "../../../../lib/db";
-import { requireCurrentUser } from "../../../../lib/auth";
-import { jsonError, withCors, corsPreflight } from "../../../../lib/format";
+import { randomUUID } from "crypto";
+import { query } from "../../../../../lib/db";
+import { requireCurrentUser } from "../../../../../lib/auth";
+import { jsonError, withCors, corsPreflight } from "../../../../../lib/format";
+import { notifyUser } from "../../../../../lib/notify";
 
 export async function OPTIONS(request) {
   return corsPreflight(request);
 }
 
-// PATCH /api/pings/:id — marks a single ping read, with no other side
-// effects (no joining an event, no accepting/declining a friend request).
-// Backs tapping into a ping to view the event it's about — the "act"
-// button already marks read as a side effect of joining, but a plain tap
-// that just opens the event shouldn't also join it. Recipient-only.
-export async function PATCH(request, { params }) {
+// POST /api/pings/:id/action   body (optional): { decision: 'accept' | 'decline' }
+// Backs a ping row's action button(s).
+// - Friend-request ping (has requesterId): 'accept' marks the Friendship
+//   accepted (so they now show up in your friends list and any outer/inner
+//   events unlock for each other); 'decline' deletes the Friendship row
+//   entirely, so they're free to request again later. Either way the ping
+//   ITSELF is kept, not deleted — its text is rewritten into a record of
+//   what you decided ("you accepted/declined ___'s friend request") and its
+//   cta is cleared, so the Pings tab shows the outcome instead of the
+//   request just vanishing with no trace. Defaults to 'accept' if no
+//   decision is sent.
+// - Event ping (has eventId): unchanged — joins the linked event and marks
+//   the ping read, regardless of decision.
+export async function POST(request, { params }) {
   try {
     const user = await requireCurrentUser(request);
     const { id } = params;
 
-    const { rows } = await query(
-      `UPDATE "Ping" SET read = true WHERE id = $1 AND "recipientId" = $2 RETURNING id`,
-      [id, user.id]
-    );
-
-    if (!rows[0]) {
-      return withCors(NextResponse.json({ error: "not found" }, { status: 404 }));
+    let decision = "accept";
+    try {
+      const body = await request.json();
+      if (body?.decision === "decline") decision = "decline";
+    } catch (e) {
+      // no/empty body — fine, default to accept.
     }
 
-    return withCors(NextResponse.json({ ok: true }));
-  } catch (err) {
-    return jsonError(err);
-  }
-}
-
-// DELETE /api/pings/:id — backs the ✕ button on a notification row in <Pings />.
-// Recipient-only: you can only delete pings that were sent to you.
-export async function DELETE(request, { params }) {
-  try {
-    const user = await requireCurrentUser(request);
-    const { id } = params;
-
     const { rows } = await query(
-      `DELETE FROM "Ping" WHERE id = $1 AND "recipientId" = $2 RETURNING id`,
+      `SELECT "eventId", "requesterId" FROM "Ping" WHERE id = $1 AND "recipientId" = $2`,
       [id, user.id]
     );
+    const ping = rows[0];
+    if (!ping) return withCors(NextResponse.json({ error: "not found" }, { status: 404 }));
 
-    if (!rows[0]) {
-      return withCors(NextResponse.json({ error: "not found" }, { status: 404 }));
+    if (ping.requesterId) {
+      const [userAId, userBId] = [user.id, ping.requesterId].sort();
+      const { rows: reqRows } = await query(`SELECT "firstName" FROM "User" WHERE id = $1`, [ping.requesterId]);
+      const requesterName = (reqRows[0]?.firstName || "they").toLowerCase();
+
+      if (decision === "decline") {
+        await query(`DELETE FROM "Friendship" WHERE "userAId" = $1 AND "userBId" = $2`, [
+          userAId,
+          userBId
+        ]);
+        await query(
+          `UPDATE "Ping" SET text = $2, cta = NULL, "requesterId" = NULL, read = true WHERE id = $1`,
+          [id, `you declined ${requesterName}'s friend request`]
+        );
+        return withCors(NextResponse.json({ ok: true, declined: true }));
+      }
+
+      await query(
+        `UPDATE "Friendship" SET status = 'accepted' WHERE "userAId" = $1 AND "userBId" = $2`,
+        [userAId, userBId]
+      );
+      await query(
+        `UPDATE "Ping" SET text = $2, cta = NULL, "requesterId" = NULL, read = true WHERE id = $1`,
+        [id, `you accepted ${requesterName}'s friend request`]
+      );
+
+      // Let the original requester know their request went through — this
+      // is the "changing state of notification" half of the friend-request
+      // flow: they get a fresh ping since their original "wants to be
+      // friends" ping had no cta pointed back at them.
+      await notifyUser({
+        recipientId: ping.requesterId,
+        text: `${user.firstName.toLowerCase()} accepted your friend request`
+      });
+
+      return withCors(NextResponse.json({ ok: true, accepted: true }));
     }
 
-    return withCors(NextResponse.json({ ok: true }));
+    if (ping.eventId) {
+      await query(
+        `INSERT INTO "EventJoin" (id, "eventId", "userId") VALUES ($1, $2, $3)
+         ON CONFLICT ("eventId", "userId") DO NOTHING`,
+        [randomUUID(), ping.eventId, user.id]
+      );
+    }
+    await query(`UPDATE "Ping" SET read = true WHERE id = $1`, [id]);
+
+    return withCors(NextResponse.json({ ok: true, joined: !!ping.eventId }));
   } catch (err) {
     return jsonError(err);
   }
