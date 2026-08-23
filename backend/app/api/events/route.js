@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { query } from "../../../lib/db";
 import { requireCurrentUser } from "../../../lib/auth";
-import { jsonError, withCors, corsPreflight } from "../../../lib/format";
+import { jsonError, withCors, corsPreflight, displayName } from "../../../lib/format";
 import { toBoardFields, fromBoardFields, postedAgo } from "../../../lib/time";
 import { dayLabelFor } from "../../../lib/dayLabel";
 import { notifyUser } from "../../../lib/notify";
@@ -38,8 +38,9 @@ export async function GET(request) {
     const now = new Date();
 
     const { rows: events } = await query(
-      `SELECT e.*
+      `SELECT e.*, u."firstName" AS "hostFirstName", u."lastName" AS "hostLastName"
          FROM "Event" e
+         JOIN "User" u ON u.id = e."hostId"
         WHERE e."startAt" >= NOW() - INTERVAL '24 hours'
           AND e."startAt" <= NOW() + INTERVAL '5 days'
           AND (
@@ -94,6 +95,10 @@ export async function GET(request) {
       return {
         id: e.id,
         who: isYours ? "you" : e.hostId,
+        // Only needed for hosts you're not friends with (e.g. public
+        // events) — the frontend prefers its friend-list lookup when it
+        // has one, since that already carries a color/avatar for them.
+        hostName: isYours ? undefined : displayName(e.hostFirstName, e.hostLastName) || undefined,
         isYours,
         emoji: e.emoji,
         what: e.title,
@@ -123,7 +128,13 @@ export async function GET(request) {
   }
 }
 
-const VALID_VISIBILITY = new Set(["everyone", "inner", "outer"]);
+// "everyone" is deliberately excluded here — posting to the whole app only
+// happens through POST /api/events/public, which hard-codes that value
+// itself. This is the one and only enforcement point for "public posting
+// only happens from the Public tab": if it's not in this set, a regular
+// post can never end up visible to non-friends, no matter what a client
+// sends.
+const VALID_VISIBILITY = new Set(["inner", "outer"]);
 
 // POST /api/events   body from <Composer />: { emoji, what, place, note, dayOffset, hour, spots, visibility }
 export async function POST(request) {
@@ -140,7 +151,7 @@ export async function POST(request) {
     const place = (body.place ?? "").trim() || "somewhere good";
     const note = (body.note ?? "").trim() || null;
     const spots = Math.max(0, parseInt(body.spots, 10) || 0);
-    const visibility = VALID_VISIBILITY.has(body.visibility) ? body.visibility : "everyone";
+    const visibility = VALID_VISIBILITY.has(body.visibility) ? body.visibility : "outer";
     // endHour is optional — omit it (or send null) for an open-ended event
     // with no set end time. When present, dur is derived from the gap
     // between start and end; an end at/before the start is rejected rather

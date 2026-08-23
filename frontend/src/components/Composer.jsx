@@ -25,7 +25,9 @@ export default function Composer({ composer, accent }) {
   return (
     <div onClick={composer.close} className="looped-modal-overlay" style={{ background: 'rgba(58,44,40,.25)', backdropFilter: 'blur(3px)', zIndex: 55 }}>
       <div onClick={(e) => e.stopPropagation()} className="looped-modal" style={{ background: 'rgba(255,251,246,.92)', border: '1px solid rgba(255,255,255,.9)', backdropFilter: 'blur(20px)', borderRadius: 22, animation: 'loopPop .35s ease' }}>
-        <div style={{ font: '800 21px Nunito,sans-serif' }}>{composer.editing ? 'edit your plans' : 'what are you up to?'}</div>
+        <div style={{ font: '800 21px Nunito,sans-serif' }}>
+          {composer.isPublic ? '🌍 post a public event' : (composer.editing ? 'edit your plans' : 'what are you up to?')}
+        </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'nowrap' }}>
           {composer.emojiChips.map((em, i) => (
             <button key={i} onClick={em.pick} style={{ flex: 1, minWidth: 0, cursor: 'pointer', border: '1.5px solid ' + em.border, background: em.bg, fontSize: 16, padding: '7px 0', borderRadius: 10 }}>{em.char}</button>
@@ -58,15 +60,25 @@ export default function Composer({ composer, accent }) {
               no end time
             </label>
           </div>
-          <div>
-            <div style={{ font: '700 11px Karla,sans-serif', letterSpacing: '.05em', color: 'rgba(58,44,40,.5)', margin: '2px 0 6px' }}>WHO CAN SEE THIS</div>
-            <select value={composer.cVisibility} onChange={composer.setCVisibility} style={{ ...selectStyle, width: '100%' }}>
-              {composer.visibilityOptions.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
-            </select>
-          </div>
+          {composer.isPublic ? (
+            // Public posts are always visible to everyone on the app — there's
+            // nothing to pick, so this just confirms that rather than showing
+            // the friends-only visibility selector below.
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,138,92,.1)', border: '1px solid rgba(255,138,92,.3)', borderRadius: 12, padding: '10px 14px' }}>
+              <span style={{ fontSize: 16 }}>🌍</span>
+              <span style={{ font: '600 12.5px Karla,sans-serif', color: 'rgba(58,44,40,.75)' }}>visible to everyone on looped — every user gets invited</span>
+            </div>
+          ) : (
+            <div>
+              <div style={{ font: '700 11px Karla,sans-serif', letterSpacing: '.05em', color: 'rgba(58,44,40,.5)', margin: '2px 0 6px' }}>WHO CAN SEE THIS</div>
+              <select value={composer.cVisibility} onChange={composer.setCVisibility} style={{ ...selectStyle, width: '100%' }}>
+                {composer.visibilityOptions.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+              </select>
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-          <button onClick={composer.postActivity} style={{ cursor: 'pointer', border: 'none', background: accent, color: '#fff', font: '800 14px Nunito,sans-serif', padding: '13px 22px', borderRadius: 999, boxShadow: '0 3px 12px rgba(255,138,92,.4)' }}>{composer.editing ? 'save changes' : 'post it'}</button>
+          <button onClick={composer.postActivity} style={{ cursor: 'pointer', border: 'none', background: accent, color: '#fff', font: '800 14px Nunito,sans-serif', padding: '13px 22px', borderRadius: 999, boxShadow: '0 3px 12px rgba(255,138,92,.4)' }}>{composer.editing ? 'save changes' : (composer.isPublic ? 'post publicly 🌍' : 'post it')}</button>
           <button onClick={composer.close} style={{ cursor: 'pointer', border: 'none', background: 'rgba(58,44,40,.08)', color: '#3a2c28', font: '800 14px Nunito,sans-serif', padding: '13px 20px', borderRadius: 999 }}>never mind</button>
         </div>
       </div>

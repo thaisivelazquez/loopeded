@@ -35,13 +35,13 @@ function emptyComposerFields() {
   return {
     cTitle: '', cPlace: '', cNote: '', cDate: '0', cTime: '',
     cEndTime: '', cNoEndTime: false,
-    cSpots: '0', cEmoji: '', cVisibility: 'outer', editingId: null
+    cSpots: '0', cEmoji: '', cVisibility: 'outer', composerIsPublic: false, editingId: null
   };
 }
 
 function initialState() {
   return {
-    view: 'loading', // 'loading' | 'onboarding' | 'today' | 'friends' | 'pings' | 'you'
+    view: 'loading', // 'loading' | 'onboarding' | 'today' | 'public' | 'friends' | 'pings' | 'you'
     name: '', last: '', phone: '', bio: '',
     onboarded: false,
     // Onboarding now branches on whether the phone number already has an
@@ -220,6 +220,17 @@ export function useLoopedApp() {
   function friendById(id) {
     return friends().find(f => f.id === id);
   }
+  // Resolves a display name for an event's host — checks your friends list
+  // first (keeps existing color/avatar lookups working), then falls back to
+  // `hostName` the backend now includes directly on each event. That
+  // fallback matters for public events: a host you're not friends with
+  // won't be in friendById(), and without it you'd see their raw user id.
+  function hostName(a) {
+    if (a.isYours) return 'you';
+    const f = friendById(a.who);
+    if (f) return f.name;
+    return a.hostName || a.who;
+  }
 
   // ---------- events (backend already merges "today" + "later this week" +
   // your own posts into one list, shaped like the old mock activity objects) ----------
@@ -263,7 +274,7 @@ export function useLoopedApp() {
   }
 
   async function toggleJoin(a) {
-    const whoName = a.isYours ? 'you' : (friendById(a.who) ? friendById(a.who).name : a.who);
+    const whoName = a.isYours ? 'you' : hostName(a);
     if (a.youIn) {
       patchEvent(a.id, { youIn: false });
       toast('no worries, backed out quietly');
@@ -313,7 +324,7 @@ export function useLoopedApp() {
     const youIn = !!a.youIn;
     const joinedCount = a.joined.length + (youIn ? 1 : 0);
     const fr = friendById(a.who);
-    const whoName = a.isYours ? 'you' : (fr ? fr.name : a.who);
+    const whoName = a.isYours ? 'you' : hostName(a);
     const wrapped = st === 'wrapped';
     const spotsLeft = a.spots ? a.spots - joinedCount : 0;
     const full = !!a.spots && spotsLeft <= 0 && !youIn;
@@ -406,19 +417,49 @@ export function useLoopedApp() {
     return {
       id: a.id,
       title: a.what + ' ' + a.emoji,
-      meta: (a.isYours ? 'you' : (fr ? fr.name : a.who)) + ' · ' + a.day + ' ' + fmtTime(a.hour) + ' · 📍 ' + a.place,
+      meta: hostName(a) + ' · ' + a.day + ' ' + fmtTime(a.hour) + ' · 📍 ' + a.place,
       note: a.note,
       color: a.isYours ? '#ffb37e' : (fr ? fr.color : '#ccc'),
-      initial: (a.isYours ? name : (fr ? fr.first : a.who))[0].toUpperCase(),
+      initial: (a.isYours ? name : hostName(a))[0].toUpperCase(),
       goingText: a.isYours ? 'yours' : (youIn ? 'going ✓' : (a.spots ? count + '/' + a.spots + ' going' : count + ' going')),
       open: () => setState({ detailId: a.id })
     };
   });
 
+  // ---------- the Public tab: every "everyone"-visibility event, from
+  // anyone on the app, in one chronological list (not just friends'
+  // stuff, and not bucketed by today/this-week like the other boards) ----------
+  const publicEvents = state.events
+    .filter(a => a.visibility === 'everyone')
+    .sort((a, b) => (a.dayOffset || 0) - (b.dayOffset || 0) || a.hour - b.hour)
+    .map(a => {
+      const fr = a.isYours ? null : friendById(a.who);
+      const youIn = !!a.youIn;
+      const count = a.joined.length + (youIn ? 1 : 0);
+      const spotsLeft = a.spots ? a.spots - count : 0;
+      const full = !!a.spots && spotsLeft <= 0 && !youIn;
+      return {
+        id: a.id,
+        title: a.what + ' ' + a.emoji,
+        note: a.note,
+        meta: hostName(a) + ' · ' + (a.day ? a.day + ' ' : 'today, ') + fmtTime(a.hour) + ' · 📍 ' + a.place,
+        color: a.isYours ? '#ffb37e' : (fr ? fr.color : '#ccc'),
+        initial: (a.isYours ? name : hostName(a))[0].toUpperCase(),
+        isYours: !!a.isYours,
+        going: youIn,
+        goingText: a.isYours ? 'yours' : (youIn ? 'going ✓' : (a.spots ? count + '/' + a.spots + ' going' : count + ' going')),
+        showJoin: !a.isYours && (youIn || !full),
+        btnLabel: youIn ? 'going ✓' : (full ? 'full' : "i'm in"),
+        toggleJoin: () => toggleJoin(a),
+        open: () => setState({ detailId: a.id }),
+        cancel: () => cancelEvent(a)
+      };
+    });
+
   // Pings are real notification rows from the backend now (posted / joined /
   // asked-to-join / etc.), not client-generated from timing math.
   const unread = S.pingsRaw.filter(p => p.unread).length;
-  const tabs = [['today', 'today'], ['friends', 'friends'], ['pings', 'pings'], ['you', 'you']];
+  const tabs = [['today', 'today'], ['public', 'public'], ['friends', 'friends'], ['pings', 'pings'], ['you', 'you']];
   const navTabs = tabs.map(([label, v]) => ({
     key: v,
     label,
@@ -754,6 +795,7 @@ export function useLoopedApp() {
         return;
       }
     }
+    const isPublic = !!S.composerIsPublic;
     const payload = {
       emoji: S.cEmoji || '✨',
       what,
@@ -763,15 +805,24 @@ export function useLoopedApp() {
       hour: startHour,
       endHour,
       spots: parseInt(S.cSpots, 10) || 0,
-      visibility: S.cVisibility || 'outer'
+      // Visibility is only ever sent from the private composer. Public
+      // posts always go through api.createPublicEvent, which hard-codes
+      // "everyone" server-side — and when editing an already-public event,
+      // leaving this out entirely lets the PATCH fall back to whatever
+      // visibility the event already has instead of silently downgrading it.
+      ...(isPublic ? {} : { visibility: S.cVisibility || 'outer' })
     };
     const editingId = S.editingId;
-    setState({ composerOpen: false, ...emptyComposerFields(), view: 'today' });
+    setState({ composerOpen: false, ...emptyComposerFields(), view: isPublic ? 'public' : 'today' });
     try {
       if (editingId) {
         const updated = await api.updateEvent(editingId, payload);
         patchEvent(editingId, updated);
         toast('updated — the new details are live ✏️');
+      } else if (isPublic) {
+        const created = await api.createPublicEvent(payload);
+        setState(prev => ({ events: prev.events.concat(created) }));
+        toast("it's posted — everyone on looped can see it 🌍");
       } else {
         const created = await api.createEvent(payload);
         setState(prev => ({ events: prev.events.concat(created) }));
@@ -797,9 +848,9 @@ export function useLoopedApp() {
       return {
         id: a.id,
         title: a.what + ' ' + a.emoji,
-        meta: (fr ? fr.name : a.who) + ' · ' + (a.day ? a.day + ' ' : '') + fmtTime(a.hour) + ' · 📍 ' + a.place,
+        meta: hostName(a) + ' · ' + (a.day ? a.day + ' ' : '') + fmtTime(a.hour) + ' · 📍 ' + a.place,
         color: fr ? fr.color : 'rgba(58,44,40,.25)',
-        initial: (fr ? fr.first : a.who)[0].toUpperCase(),
+        initial: hostName(a)[0].toUpperCase(),
         open: () => setState({ detailId: a.id })
       };
     });
@@ -821,7 +872,7 @@ export function useLoopedApp() {
   if (detailActivity) {
     const a = detailActivity;
     const fr = friendById(a.who);
-    const whoName = a.isYours ? 'you' : (fr ? fr.name : a.who);
+    const whoName = a.isYours ? 'you' : hostName(a);
     const youIn = !!a.youIn;
     const joinedIds = a.joined || [];
     const joinedCount = joinedIds.length + (youIn ? 1 : 0);
@@ -892,7 +943,12 @@ export function useLoopedApp() {
           cNoEndTime: a.dur == null,
           cSpots: String(a.spots || 0),
           cEmoji: a.emoji,
-          cVisibility: a.visibility === 'inner' ? 'inner' : 'outer'
+          // A public event stays public through an edit — the composer
+          // hides the visibility picker entirely in that case (see
+          // composerIsPublic) rather than letting this fall through to
+          // 'outer' and silently take the event private.
+          cVisibility: a.visibility === 'inner' ? 'inner' : 'outer',
+          composerIsPublic: a.visibility === 'everyone'
         });
       }
     };
@@ -961,6 +1017,11 @@ export function useLoopedApp() {
     today: {
       greeting, subline, ticks, slider, buckets, weekItems,
       openComposer: () => setState({ composerOpen: true, ...emptyComposerFields() })
+    },
+
+    public: {
+      list: publicEvents,
+      openComposer: () => setState({ composerOpen: true, ...emptyComposerFields(), composerIsPublic: true })
     },
 
     pings: {
@@ -1053,6 +1114,7 @@ export function useLoopedApp() {
     composer: {
       open: S.composerOpen,
       editing: !!S.editingId,
+      isPublic: !!S.composerIsPublic,
       close: () => setState({ composerOpen: false, ...emptyComposerFields() }),
       cTitle: S.cTitle, setCTitle: (e) => setState({ cTitle: e.target.value }),
       cPlace: S.cPlace, setCPlace: (e) => setState({ cPlace: e.target.value }),

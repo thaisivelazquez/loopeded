@@ -84,6 +84,7 @@ export const api = {
 
   events: () => request('/api/events'),
   createEvent: (payload) => request('/api/events', { method: 'POST', body: JSON.stringify(payload) }),
+  createPublicEvent: (payload) => request('/api/events/public', { method: 'POST', body: JSON.stringify(payload) }),
   updateEvent: (id, payload) => request(`/api/events/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   cancelEvent: (id) => request(`/api/events/${id}`, { method: 'DELETE' }),
   joinEvent: (id) => request(`/api/events/${id}/join`, { method: 'POST' }),

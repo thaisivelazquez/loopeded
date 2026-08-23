@@ -14,7 +14,12 @@ export async function OPTIONS(request) {
   return corsPreflight(request);
 }
 
-const VALID_VISIBILITY = new Set(["everyone", "inner", "outer"]);
+// Input validation only — "everyone" isn't accepted from a client here on
+// purpose. An event only ever becomes public through POST /api/events/public;
+// this just stops a regular edit from escalating a private event into one.
+// An already-public event stays public across edits regardless (see below:
+// falling through to existing.visibility, never forced back to private).
+const VALID_VISIBILITY = new Set(["inner", "outer"]);
 
 // PATCH /api/events/:id
 // Backs the "edit" button on your own posts in <EventDetail /> / <Composer />.

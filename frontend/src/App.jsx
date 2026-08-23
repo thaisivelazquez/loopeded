@@ -2,6 +2,7 @@ import { useLoopedApp } from './useLoopedApp.js';
 import Onboarding from './components/Onboarding.jsx';
 import NavBar from './components/NavBar.jsx';
 import TodayBoard from './components/TodayBoard.jsx';
+import PublicBoard from './components/PublicBoard.jsx';
 import Pings from './components/Pings.jsx';
 import Friends from './components/Friends.jsx';
 import Profile from './components/Profile.jsx';
@@ -24,6 +25,7 @@ export default function App() {
         <>
           <NavBar nav={app.nav} accent={app.accent} />
           {app.view === 'today' && <TodayBoard today={app.today} accent={app.accent} />}
+          {app.view === 'public' && <PublicBoard pub={app.public} accent={app.accent} />}
           {app.view === 'pings' && <Pings pings={app.pings} accent={app.accent} />}
           {app.view === 'friends' && <Friends friends={app.friends} accent={app.accent} />}
           {app.view === 'you' && <Profile profile={{ ...app.profile, goToday: app.nav.goToday }} />}
