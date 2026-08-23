@@ -338,9 +338,13 @@ export function useLoopedApp() {
   });
 
   const edges = [[0, 12], [12, 17], [17, 21], [21, 28]];
+  // "quiet for now" only makes sense when today's board is empty across the
+  // board — if you've got something posted in any other bucket, an empty
+  // bucket here is just an empty column, not a prompt to go post something.
+  const anyToday = acts.length > 0;
   const buckets = edges.map(([lo, hi]) => {
     const items = acts.filter(a => a.hour >= lo && a.hour < hi).sort((x, y) => x.hour - y.hour);
-    return { items, empty: items.length === 0 };
+    return { items, empty: items.length === 0 && !anyToday };
   });
 
   const tickMarks = [
