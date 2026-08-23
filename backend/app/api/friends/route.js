@@ -80,7 +80,7 @@ export async function POST(request) {
       return withCors(
         NextResponse.json({
           invited: false,
-          message: "no looped account for that number yet — we texted them an invite"
+          message: "no looped account for that number yet — we notified  them an invite"
         })
       );
     }
