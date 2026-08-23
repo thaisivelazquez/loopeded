@@ -171,11 +171,23 @@ export function useLoopedApp() {
     ]);
     setStateRaw(prev => {
       if (prev.composerOpen) return prev;
+      // Tapping a ping marks it read locally right away and fires the
+      // PATCH in the background (see the `open` handler below) — if a poll
+      // lands before that request finishes, the server still thinks it's
+      // unread. Don't let a lagging poll resurrect a badge the person just
+      // cleared: once something's read locally, it stays read here no
+      // matter what this fetch says.
+      const mergedPings = pingsRaw.status === 'fulfilled' && Array.isArray(pingsRaw.value)
+        ? pingsRaw.value.map(fresh => {
+            const local = prev.pingsRaw.find(x => x.id === fresh.id);
+            return (local && local.unread === false && fresh.unread) ? { ...fresh, unread: false } : fresh;
+          })
+        : prev.pingsRaw;
       return {
         ...prev,
         friendsRaw: friendsRaw.status === 'fulfilled' && Array.isArray(friendsRaw.value) ? friendsRaw.value : prev.friendsRaw,
         events: events.status === 'fulfilled' && Array.isArray(events.value) ? events.value : prev.events,
-        pingsRaw: pingsRaw.status === 'fulfilled' && Array.isArray(pingsRaw.value) ? pingsRaw.value : prev.pingsRaw
+        pingsRaw: mergedPings
       };
     });
   }
