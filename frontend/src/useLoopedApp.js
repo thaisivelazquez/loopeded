@@ -155,35 +155,44 @@ export function useLoopedApp() {
     }
   }
 
-  // ---------- background refresh, so new/updated events from friends show
-  // up on their own instead of requiring a manual page reload ----------
+  // ---------- background refresh, so new/updated events, pings, and
+  // friends show up on their own instead of requiring a manual reload ----------
   // Silent on purpose (no toast on failure) since this runs unattended —
   // a dropped poll shouldn't interrupt whatever the person is doing. Skips
   // the merge entirely while the composer is open or a post is mid-submit
-  // so it can never stomp on text someone is actively typing.
-  async function refreshEvents() {
-    try {
-      const events = await api.events();
-      setStateRaw(prev => (prev.composerOpen ? prev : { ...prev, events }));
-    } catch (e) {
-      // ignore — next poll (or the next foreground/visibility refresh) will
-      // pick it up
-    }
+  // so it can never stomp on text someone is actively typing. Each piece
+  // only overwrites state if it actually came back as an array, so a
+  // transient failure on one endpoint doesn't wipe out the other two.
+  async function refreshBoard() {
+    const [friendsRaw, events, pingsRaw] = await Promise.allSettled([
+      api.friends(),
+      api.events(),
+      api.pings()
+    ]);
+    setStateRaw(prev => {
+      if (prev.composerOpen) return prev;
+      return {
+        ...prev,
+        friendsRaw: friendsRaw.status === 'fulfilled' && Array.isArray(friendsRaw.value) ? friendsRaw.value : prev.friendsRaw,
+        events: events.status === 'fulfilled' && Array.isArray(events.value) ? events.value : prev.events,
+        pingsRaw: pingsRaw.status === 'fulfilled' && Array.isArray(pingsRaw.value) ? pingsRaw.value : prev.pingsRaw
+      };
+    });
   }
 
   useEffect(() => {
     if (!state.onboarded) return;
-    const POLL_MS = 12000;
-    const poll = setInterval(refreshEvents, POLL_MS);
+    const POLL_MS = 8000;
+    const poll = setInterval(refreshBoard, POLL_MS);
     function onVisible() {
-      if (document.visibilityState === 'visible') refreshEvents();
+      if (document.visibilityState === 'visible') refreshBoard();
     }
     document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', refreshEvents);
+    window.addEventListener('focus', refreshBoard);
     return () => {
       clearInterval(poll);
       document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', refreshEvents);
+      window.removeEventListener('focus', refreshBoard);
     };
   }, [state.onboarded]);
 
