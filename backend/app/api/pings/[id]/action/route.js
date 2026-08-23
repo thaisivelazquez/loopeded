@@ -56,7 +56,7 @@ export async function POST(request, { params }) {
           userBId
         ]);
         await query(
-          `UPDATE "Ping" SET text = $2, cta = NULL, read = true WHERE id = $1`,
+          `UPDATE "Ping" SET text = $2, cta = NULL, "requesterId" = NULL, read = true WHERE id = $1`,
           [id, `you declined ${requesterName}'s friend request`]
         );
         return withCors(NextResponse.json({ ok: true, declined: true }));
@@ -67,7 +67,7 @@ export async function POST(request, { params }) {
         [userAId, userBId]
       );
       await query(
-        `UPDATE "Ping" SET text = $2, cta = NULL, read = true WHERE id = $1`,
+        `UPDATE "Ping" SET text = $2, cta = NULL, "requesterId" = NULL, read = true WHERE id = $1`,
         [id, `you accepted ${requesterName}'s friend request`]
       );
 
