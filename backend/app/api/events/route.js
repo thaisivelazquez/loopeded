@@ -1,100 +1,129 @@
 // ====================================================
-// SAVE TO: backend/app/api/events/route.js
+// SAVE TO: backend/app/api/events/[id]/route.js
 // ====================================================
 import { NextResponse } from "next/server";
-import { randomUUID } from "crypto";
-import { query } from "../../../lib/db";
-import { requireCurrentUser } from "../../../lib/auth";
-import { jsonError, withCors, corsPreflight } from "../../../lib/format";
-import { toBoardFields, fromBoardFields, postedAgo } from "../../../lib/time";
-import { dayLabelFor } from "../../../lib/dayLabel";
-import { notifyUser } from "../../../lib/notify";
-import { geocodeAddress } from "../../../lib/geocode";
+import { query } from "../../../../lib/db";
+import { requireCurrentUser } from "../../../../lib/auth";
+import { jsonError, withCors, corsPreflight } from "../../../../lib/format";
+import { notifyUsers } from "../../../../lib/notify";
+import { toBoardFields, fromBoardFields, formatClock } from "../../../../lib/time";
+import { dayLabelFor } from "../../../../lib/dayLabel";
+import { geocodeAddress } from "../../../../lib/geocode";
 
 export async function OPTIONS(request) {
   return corsPreflight(request);
 }
 
-// GET /api/events
-// Returns activities shaped for the v1 board (TodayBoard + the "later this
-// week" list): id, who, emoji, what, place, note, hour, dur, joined, spots,
-// dist, postedAgo, day, dayOffset, isYours, youIn, visibility.
-//
-// Visibility rules (host picks this when posting, via <Composer />):
-//   'everyone' — anyone can see it (unchanged default behavior)
-//   'outer'    — visible to any accepted friend of the host
-//   'inner'    — visible only to friends the HOST has placed in their inner
-//                circle ("circleA"/"circleB" on the Friendship row, read
-//                from the host's side, not the viewer's)
-// The host and event owner can always see their own posts.
-//
-// Window: everything from 24h ago (so "wrapped" items still render today)
-// through 5 days out (matches the composer's day picker, which only offers
-// 0-5). `who` is the host's userId — the frontend already looks friends up
-// by id via friendById(), so no name-joining is needed here.
-export async function GET(request) {
+const VALID_VISIBILITY = new Set(["everyone", "inner", "outer"]);
+
+// PATCH /api/events/:id
+// Backs the "edit" button on your own posts in <EventDetail /> / <Composer />.
+// Host-only. Accepts the same shape the composer posts on create:
+// { emoji, what, place, note, dayOffset, hour, spots, visibility }.
+// Anyone already joined gets a ping, but only when it's a change they'd
+// actually care about — location, time, or the note — not every edit (e.g.
+// bumping the spot count or tweaking the title doesn't notify anyone).
+export async function PATCH(request, { params }) {
   try {
     const user = await requireCurrentUser(request);
-    const now = new Date();
+    const { id } = params;
+    const body = await request.json();
 
-    const { rows: events } = await query(
-      `SELECT e.*
-         FROM "Event" e
-        WHERE e."startAt" >= NOW() - INTERVAL '24 hours'
-          AND e."startAt" <= NOW() + INTERVAL '5 days'
-          AND (
-            e.visibility = 'everyone'
-            OR e."hostId" = $1
-            OR (
-              e.visibility = 'outer'
-              AND EXISTS (
-                SELECT 1 FROM "Friendship" f
-                 WHERE f.status = 'accepted'
-                   AND (
-                     (f."userAId" = $1 AND f."userBId" = e."hostId") OR
-                     (f."userBId" = $1 AND f."userAId" = e."hostId")
-                   )
-              )
-            )
-            OR (
-              e.visibility = 'inner'
-              AND EXISTS (
-                SELECT 1 FROM "Friendship" f
-                 WHERE f.status = 'accepted'
-                   AND (
-                     (f."userAId" = e."hostId" AND f."userBId" = $1 AND f."circleA" = 'inner') OR
-                     (f."userBId" = e."hostId" AND f."userAId" = $1 AND f."circleB" = 'inner')
-                   )
-              )
-            )
-          )
-        ORDER BY e."startAt" ASC`,
-      [user.id]
-    );
-
-    if (events.length === 0) return withCors(NextResponse.json([]));
-
-    const eventIds = events.map((e) => e.id);
-    const { rows: joins } = await query(
-      `SELECT "eventId", "userId" FROM "EventJoin" WHERE "eventId" = ANY($1::text[])`,
-      [eventIds]
-    );
-    const joinsByEvent = new Map();
-    for (const j of joins) {
-      if (!joinsByEvent.has(j.eventId)) joinsByEvent.set(j.eventId, []);
-      joinsByEvent.get(j.eventId).push(j.userId);
+    const { rows: existingRows } = await query(`SELECT * FROM "Event" WHERE id = $1`, [id]);
+    const existing = existingRows[0];
+    if (!existing) {
+      return withCors(NextResponse.json({ error: "not found" }, { status: 404 }));
+    }
+    if (existing.hostId !== user.id) {
+      return withCors(NextResponse.json({ error: "only the host can edit this" }, { status: 403 }));
     }
 
-    const shaped = events.map((e) => {
-      const joinedIds = joinsByEvent.get(e.id) ?? [];
-      const youIn = joinedIds.includes(user.id);
-      const { hour, dayOffset } = toBoardFields(e.startAt, now);
-      const isYours = e.hostId === user.id;
+    const what = (body.what ?? existing.title).trim() || existing.title;
+    const emoji = (body.emoji ?? existing.emoji).trim() || existing.emoji;
+    const place = (body.place ?? existing.location).trim() || existing.location;
+    const note = body.note != null ? (body.note.trim() || null) : existing.note;
+    const spots = body.spots != null ? Math.max(0, parseInt(body.spots, 10) || 0) : existing.spots;
+    const visibility = VALID_VISIBILITY.has(body.visibility) ? body.visibility : existing.visibility;
 
-      return {
+    const startAt =
+      body.dayOffset != null && body.hour != null
+        ? fromBoardFields(body.dayOffset, body.hour)
+        : existing.startAt;
+
+    // endHour works the same as on create: omit/null it for an open-ended
+    // event, or send an end after the start to set a duration. Not sent at
+    // all (undefined) leaves the existing duration untouched.
+    let dur = existing.durationHours;
+    if (body.hour != null && "endHour" in body) {
+      if (body.endHour == null) {
+        dur = null;
+      } else {
+        const endHourNum = Number(body.endHour);
+        const hourNum = Number(body.hour);
+        if (Number.isFinite(endHourNum) && endHourNum > hourNum) {
+          dur = endHourNum - hourNum;
+        } else {
+          return withCors(NextResponse.json({ error: "end time must be after the start time" }, { status: 400 }));
+        }
+      }
+    }
+
+    // Only re-geocode (a paid, non-free API call) when the place text
+    // actually changed — otherwise keep the coordinates we already have.
+    const placeChanged = place !== existing.location;
+    const coords = placeChanged ? await geocodeAddress(place) : null;
+    const lat = placeChanged ? coords?.lat ?? null : existing.lat;
+    const lng = placeChanged ? coords?.lng ?? null : existing.lng;
+
+    const { rows } = await query(
+      `UPDATE "Event"
+          SET emoji = $1, title = $2, location = $3, note = $4,
+              "timeLabel" = $2, "startAt" = $5, spots = $6, visibility = $7,
+              lat = $8, lng = $9, "durationHours" = $10
+        WHERE id = $11
+        RETURNING *`,
+      [emoji, what, place, note, startAt, spots, visibility, lat, lng, dur, id]
+    );
+    const e = rows[0];
+
+    const { rows: joinRows } = await query(`SELECT "userId" FROM "EventJoin" WHERE "eventId" = $1`, [id]);
+    const joinedIds = joinRows.map((r) => r.userId);
+    if (joinedIds.length) {
+      // Only these four count as a "heads up" — a spots/visibility/title
+      // tweak shouldn't ping everyone who's already going.
+      const changes = [];
+      if (place !== existing.location) {
+        changes.push(`moved to ${place}`);
+      }
+      if (new Date(startAt).getTime() !== new Date(existing.startAt).getTime()) {
+        changes.push(`time changed to ${formatClock(startAt)}`);
+      }
+      const existingDur = existing.durationHours != null ? Number(existing.durationHours) : null;
+      const newDur = dur != null ? Number(dur) : null;
+      if (newDur !== existingDur) {
+        changes.push(newDur == null ? "removed the end time" : "changed the end time");
+      }
+      const noteChanged = (note || null) !== (existing.note || null);
+      if (noteChanged) {
+        if (!existing.note && note) changes.push("added a note");
+        else if (existing.note && !note) changes.push("removed the note");
+        else changes.push("updated the note");
+      }
+
+      if (changes.length) {
+        await notifyUsers(joinedIds, {
+          eventId: id,
+          text: `${user.firstName.toLowerCase()} ${changes.join(", ")} for ${what} ${emoji}`
+        });
+      }
+    }
+
+    const { hour, dayOffset } = toBoardFields(e.startAt);
+    return withCors(
+      NextResponse.json({
         id: e.id,
-        who: isYours ? "you" : e.hostId,
-        isYours,
+        who: "you",
+        isYours: true,
         emoji: e.emoji,
         what: e.title,
         place: e.location,
@@ -106,114 +135,49 @@ export async function GET(request) {
         spots: e.spots,
         visibility: e.visibility,
         lat: e.lat ?? undefined,
-        lng: e.lng ?? undefined,
-        // joined excludes the viewer — the frontend tracks the viewer's own
-        // join state separately (see youIn) and adds it back in when it
-        // needs a total headcount.
-        joined: joinedIds.filter((id) => id !== user.id),
-        youIn,
-        dist: e.distance || undefined,
-        postedAgo: postedAgo(e.createdAt, now)
-      };
-    });
-
-    return withCors(NextResponse.json(shaped));
+        lng: e.lng ?? undefined
+      })
+    );
   } catch (err) {
     return jsonError(err);
   }
 }
 
-const VALID_VISIBILITY = new Set(["everyone", "inner", "outer"]);
-
-// POST /api/events   body from <Composer />: { emoji, what, place, note, dayOffset, hour, spots, visibility }
-export async function POST(request) {
+// DELETE /api/events/:id
+// Backs <EventDetail />'s "cancel" / "call it off" action, and the cancel
+// button on your own board cards. Host-only; also clears joins and any
+// pings that reference the event so nothing dangles. Anyone who had joined
+// gets a cancellation notification (ping + SMS) before the row disappears.
+export async function DELETE(request, { params }) {
   try {
     const user = await requireCurrentUser(request);
-    const body = await request.json();
+    const { id } = params;
 
-    const what = (body.what ?? "").trim();
-    const emoji = (body.emoji ?? "✨").trim() || "✨";
-    if (!what) {
-      return withCors(NextResponse.json({ error: "what is required" }, { status: 400 }));
+    const { rows } = await query(`SELECT "hostId", title FROM "Event" WHERE id = $1`, [id]);
+    const event = rows[0];
+    if (!event) {
+      return withCors(NextResponse.json({ error: "not found" }, { status: 404 }));
+    }
+    if (event.hostId !== user.id) {
+      return withCors(NextResponse.json({ error: "only the host can cancel this" }, { status: 403 }));
     }
 
-    const place = (body.place ?? "").trim() || "somewhere good";
-    const note = (body.note ?? "").trim() || null;
-    const spots = Math.max(0, parseInt(body.spots, 10) || 0);
-    const visibility = VALID_VISIBILITY.has(body.visibility) ? body.visibility : "everyone";
-    // endHour is optional — omit it (or send null) for an open-ended event
-    // with no set end time. When present, dur is derived from the gap
-    // between start and end; an end at/before the start is rejected rather
-    // than silently wrapping to the next day.
-    const hourNum = Number(body.hour);
-    let dur = null;
-    if (body.endHour != null) {
-      const endHourNum = Number(body.endHour);
-      if (Number.isFinite(endHourNum) && endHourNum > hourNum) {
-        dur = endHourNum - hourNum;
-      } else {
-        return withCors(NextResponse.json({ error: "end time must be after the start time" }, { status: 400 }));
-      }
-    }
-    const startAt = fromBoardFields(body.dayOffset, body.hour);
-    const coords = await geocodeAddress(place);
+    const { rows: joinRows } = await query(`SELECT "userId" FROM "EventJoin" WHERE "eventId" = $1`, [id]);
+    const joinedIds = joinRows.map((r) => r.userId);
 
-    const id = randomUUID();
-    const { rows } = await query(
-      `INSERT INTO "Event"
-         (id, "hostId", emoji, title, location, note, "timeLabel", "startAt", visibility, status, spots, "durationHours", lat, lng)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'now', $10, $11, $12, $13)
-       RETURNING *`,
-      [id, user.id, emoji, what, place, note, what, startAt, visibility, spots, dur, coords?.lat ?? null, coords?.lng ?? null]
-    );
+    await query(`DELETE FROM "Ping" WHERE "eventId" = $1`, [id]);
+    await query(`DELETE FROM "EventJoin" WHERE "eventId" = $1`, [id]);
+    await query(`DELETE FROM "Event" WHERE id = $1`, [id]);
 
-    // Notify friends there's something new on the board — only the ones who
-    // would actually be able to see it, based on the chosen visibility.
-    const { rows: friendRows } = await query(
-      `SELECT
-         CASE WHEN "userAId" = $1 THEN "userBId" ELSE "userAId" END AS id,
-         CASE WHEN "userAId" = $1 THEN "circleA" ELSE "circleB" END AS circle
-         FROM "Friendship" WHERE status = 'accepted' AND $1 IN ("userAId", "userBId")`,
-      [user.id]
-    );
-    const toNotify =
-      visibility === "inner" ? friendRows.filter((f) => f.circle === "inner") : friendRows;
-    for (const f of toNotify) {
-      await notifyUser({
-        recipientId: f.id,
-        eventId: id,
-        text: `${user.firstName.toLowerCase()} posted ${what} ${emoji}`,
-        cta: "i'm in"
+    if (joinedIds.length) {
+      // eventId is intentionally omitted (null) — the Event row is already
+      // gone by the time this notification is read, so it can't link back.
+      await notifyUsers(joinedIds, {
+        text: `${event.title} was called off — ${user.firstName.toLowerCase()} cancelled it`
       });
     }
 
-    const e = rows[0];
-    const { hour, dayOffset } = toBoardFields(e.startAt);
-    return withCors(
-      NextResponse.json(
-        {
-          id: e.id,
-          who: "you",
-          isYours: true,
-          emoji: e.emoji,
-          what: e.title,
-          place: e.location,
-          note: e.note || "",
-          hour,
-          dur: e.durationHours != null ? Number(e.durationHours) : null,
-          dayOffset,
-          day: dayOffset > 0 ? dayLabelFor(dayOffset) : undefined,
-          spots: e.spots,
-          visibility: e.visibility,
-          lat: e.lat ?? undefined,
-          lng: e.lng ?? undefined,
-          joined: [],
-          youIn: true,
-          postedAgo: "posted just now"
-        },
-        { status: 201 }
-      )
-    );
+    return withCors(NextResponse.json({ ok: true }));
   } catch (err) {
     return jsonError(err);
   }
