@@ -50,6 +50,24 @@ export async function PATCH(request, { params }) {
         ? fromBoardFields(body.dayOffset, body.hour)
         : existing.startAt;
 
+    // endHour works the same as on create: omit/null it for an open-ended
+    // event, or send an end after the start to set a duration. Not sent at
+    // all (undefined) leaves the existing duration untouched.
+    let dur = existing.durationHours;
+    if (body.hour != null && "endHour" in body) {
+      if (body.endHour == null) {
+        dur = null;
+      } else {
+        const endHourNum = Number(body.endHour);
+        const hourNum = Number(body.hour);
+        if (Number.isFinite(endHourNum) && endHourNum > hourNum) {
+          dur = endHourNum - hourNum;
+        } else {
+          return withCors(NextResponse.json({ error: "end time must be after the start time" }, { status: 400 }));
+        }
+      }
+    }
+
     // Only re-geocode (a paid, non-free API call) when the place text
     // actually changed — otherwise keep the coordinates we already have.
     const placeChanged = place !== existing.location;
@@ -61,17 +79,17 @@ export async function PATCH(request, { params }) {
       `UPDATE "Event"
           SET emoji = $1, title = $2, location = $3, note = $4,
               "timeLabel" = $2, "startAt" = $5, spots = $6, visibility = $7,
-              lat = $8, lng = $9
-        WHERE id = $10
+              lat = $8, lng = $9, "durationHours" = $10
+        WHERE id = $11
         RETURNING *`,
-      [emoji, what, place, note, startAt, spots, visibility, lat, lng, id]
+      [emoji, what, place, note, startAt, spots, visibility, lat, lng, dur, id]
     );
     const e = rows[0];
 
     const { rows: joinRows } = await query(`SELECT "userId" FROM "EventJoin" WHERE "eventId" = $1`, [id]);
     const joinedIds = joinRows.map((r) => r.userId);
     if (joinedIds.length) {
-      // Only these three count as a "heads up" — a spots/visibility/title
+      // Only these four count as a "heads up" — a spots/visibility/title
       // tweak shouldn't ping everyone who's already going.
       const changes = [];
       if (place !== existing.location) {
@@ -79,6 +97,11 @@ export async function PATCH(request, { params }) {
       }
       if (new Date(startAt).getTime() !== new Date(existing.startAt).getTime()) {
         changes.push(`time changed to ${formatClock(startAt)}`);
+      }
+      const existingDur = existing.durationHours != null ? Number(existing.durationHours) : null;
+      const newDur = dur != null ? Number(dur) : null;
+      if (newDur !== existingDur) {
+        changes.push(newDur == null ? "removed the end time" : "changed the end time");
       }
       const noteChanged = (note || null) !== (existing.note || null);
       if (noteChanged) {
@@ -106,7 +129,7 @@ export async function PATCH(request, { params }) {
         place: e.location,
         note: e.note || "",
         hour,
-        dur: Number(e.durationHours),
+        dur: e.durationHours != null ? Number(e.durationHours) : null,
         dayOffset,
         day: dayOffset > 0 ? dayLabelFor(dayOffset) : undefined,
         spots: e.spots,

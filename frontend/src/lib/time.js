@@ -29,6 +29,24 @@ export function fmtTime(h) {
   return hh + (m ? ':' + String(m).padStart(2, '0') : '') + ' ' + ampm;
 }
 
+// Convert a decimal hour (e.g. 16.25 = 4:15pm) to the 24hr "HH:MM" string
+// <input type="time"> expects/returns.
+export function hourToClockValue(h) {
+  h = ((h % 24) + 24) % 24;
+  const hh = Math.floor(h);
+  const mm = Math.round((h - hh) * 60);
+  return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+}
+
+// Parse a "HH:MM" <input type="time"> value back into a decimal hour.
+// Returns null for empty/unparseable input.
+export function clockValueToHour(v) {
+  if (!v) return null;
+  const [hh, mm] = v.split(':').map(Number);
+  if (Number.isNaN(hh)) return null;
+  return hh + (Number.isNaN(mm) ? 0 : mm) / 60;
+}
+
 export function dayLabel(offset) {
   if (!offset) return 'today';
   if (offset === 1) return 'tomorrow';

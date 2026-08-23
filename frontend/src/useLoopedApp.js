@@ -3,7 +3,7 @@
 // ====================================================
 import { useEffect, useRef, useState } from 'react';
 import { fmtName } from './lib/data.js';
-import { nowHour, modeForHour, gradientForMode, fmtTime, dayLabel, clockLine as clockLineFor } from './lib/time.js';
+import { nowHour, modeForHour, gradientForMode, fmtTime, dayLabel, clockLine as clockLineFor, hourToClockValue, clockValueToHour } from './lib/time.js';
 import { api } from './lib/api.js';
 import { COUNTRY_CODES } from './lib/countryCodes.js';
 
@@ -32,7 +32,11 @@ function formatDistance(miles) {
 }
 
 function emptyComposerFields() {
-  return { cTitle: '', cPlace: '', cNote: '', cDate: '0', cTime: '', cSpots: '0', cEmoji: '', cVisibility: 'outer', editingId: null };
+  return {
+    cTitle: '', cPlace: '', cNote: '', cDate: '0', cTime: '',
+    cEndTime: '', cNoEndTime: false,
+    cSpots: '0', cEmoji: '', cVisibility: 'outer', editingId: null
+  };
 }
 
 function initialState() {
@@ -210,7 +214,8 @@ export function useLoopedApp() {
 
   function status(a) {
     if (a.day) return 'open';
-    if (now > a.hour + (a.dur || 1.25)) return 'wrapped';
+    // a.dur is null for events posted with "no end time" — those never wrap.
+    if (a.dur != null && now > a.hour + a.dur) return 'wrapped';
     if (now >= a.hour - 0.25) return 'now';
     return 'open';
   }
@@ -685,33 +690,52 @@ export function useLoopedApp() {
     return { value: String(off), label };
   });
   const cDateOff = parseInt(S.cDate, 10) || 0;
-  const timeOptions = [];
-  {
-    // Editing an existing "today" post can have a start time earlier than
-    // right now — don't clip the picker to future-only in that case, or
-    // saving an edit would silently bump the time forward.
-    const editingToday = !!S.editingId && cDateOff === 0;
-    let t = (cDateOff === 0 && !editingToday) ? Math.ceil(now * 2) / 2 + 0.5 : (cDateOff === 0 ? 0 : 8);
-    const tEnd = cDateOff === 0 ? 24 : 23.5;
-    for (let i = 0; i < 48 && t <= tEnd; i++, t += 0.5) {
-      timeOptions.push({ value: String(t), label: fmtTime(t) });
-    }
-    if (!timeOptions.length) timeOptions.push({ value: '20', label: fmtTime(20) });
-  }
-  const cTime = timeOptions.some(o => o.value === S.cTime) ? S.cTime : (timeOptions[0] && timeOptions[0].value);
+  // Editing an existing "today" post can have a start time earlier than
+  // right now — don't clip the picker to future-only in that case, or
+  // saving an edit would silently bump the time forward.
+  const editingToday = !!S.editingId && cDateOff === 0;
+  // Suggested default start time when the composer opens fresh: the next
+  // quarter-hour, with a little buffer so it isn't immediately "now".
+  const suggestedStart = Math.min(23.75, Math.ceil(now * 4) / 4 + 0.25);
+  const cTime = S.cTime || hourToClockValue(cDateOff === 0 && !editingToday ? suggestedStart : 8);
+  // Earliest selectable clock time — only constrains "today", and only
+  // when not editing an existing today post (see above).
+  const cTimeMin = (cDateOff === 0 && !editingToday) ? hourToClockValue(now) : undefined;
+  // End time defaults to 1.5 hours after start, staying in sync with the
+  // start time until the person edits it directly (cEndTimeTouched) or
+  // marks the event as having no end time.
+  const startHourForDefaults = clockValueToHour(cTime);
+  const cEndTime = S.cNoEndTime
+    ? ''
+    : (S.cEndTime || (startHourForDefaults != null ? hourToClockValue(Math.min(24, startHourForDefaults + 1.5)) : ''));
 
   async function postActivity() {
     const what = S.cTitle.trim();
     if (!what) { toast("say what you're up to first 🙂"); return; }
     const dayOffset = Math.min(5, Math.max(0, parseInt(S.cDate, 10) || 0));
-    const validTime = timeOptions.some(o => o.value === S.cTime) ? S.cTime : (timeOptions[0] && timeOptions[0].value);
+    const startHour = clockValueToHour(cTime);
+    if (startHour == null) { toast('pick a start time 🕐'); return; }
+    if (dayOffset === 0 && !editingToday && startHour < now) {
+      toast("pick a time that hasn't passed yet 🕐");
+      return;
+    }
+    let endHour = null;
+    if (!S.cNoEndTime) {
+      endHour = clockValueToHour(cEndTime);
+      if (endHour == null) endHour = Math.min(24, startHour + 1.5);
+      if (endHour <= startHour) {
+        toast('end time should be after the start time 🕐');
+        return;
+      }
+    }
     const payload = {
       emoji: S.cEmoji || '✨',
       what,
       place: S.cPlace.trim() || 'somewhere good',
       note: S.cNote.trim(),
       dayOffset,
-      hour: parseFloat(validTime || '20'),
+      hour: startHour,
+      endHour,
       spots: parseInt(S.cSpots, 10) || 0,
       visibility: S.cVisibility || 'outer'
     };
@@ -778,7 +802,7 @@ export function useLoopedApp() {
     const spotsLeft = a.spots ? a.spots - joinedCount : 0;
     const goingNames = joinedIds.map(j => { const f = friendById(j); return f ? f.name : j; });
     if (youIn) goingNames.push('you');
-    const timeRange = (a.day ? a.day + ' · ' : 'today, ') + fmtTime(a.hour) + ' – ' + fmtTime(a.hour + (a.dur || 1.5));
+    const timeRange = (a.day ? a.day + ' · ' : 'today, ') + fmtTime(a.hour) + (a.dur != null ? ' – ' + fmtTime(a.hour + a.dur) : ' – no end time set');
     const full = a.spots && spotsLeft <= 0 && !youIn;
 
     // ---------- google maps embed for "getting there" ----------
@@ -837,7 +861,9 @@ export function useLoopedApp() {
           cPlace: a.place,
           cNote: a.note || '',
           cDate: String(a.dayOffset || 0),
-          cTime: String(a.hour),
+          cTime: hourToClockValue(a.hour),
+          cEndTime: a.dur != null ? hourToClockValue(a.hour + a.dur) : '',
+          cNoEndTime: a.dur == null,
           cSpots: String(a.spots || 0),
           cEmoji: a.emoji,
           cVisibility: a.visibility === 'inner' ? 'inner' : 'outer'
@@ -1005,11 +1031,15 @@ export function useLoopedApp() {
       cTitle: S.cTitle, setCTitle: (e) => setState({ cTitle: e.target.value }),
       cPlace: S.cPlace, setCPlace: (e) => setState({ cPlace: e.target.value }),
       cNote: S.cNote, setCNote: (e) => setState({ cNote: e.target.value }),
-      cDate: S.cDate, setCDate: (e) => setState({ cDate: e.target.value, cTime: '' }),
+      cDate: S.cDate, setCDate: (e) => setState({ cDate: e.target.value }),
       cTime, setCTime: (e) => setState({ cTime: e.target.value }),
+      cTimeMin,
+      cEndTime, setCEndTime: (e) => setState({ cEndTime: e.target.value }),
+      cNoEndTime: S.cNoEndTime,
+      toggleNoEndTime: (e) => setState({ cNoEndTime: e.target.checked }),
       cSpots: S.cSpots, setCSpots: (e) => setState({ cSpots: e.target.value }),
       cVisibility: S.cVisibility, setCVisibility: (e) => setState({ cVisibility: e.target.value }),
-      dateOptions, emojiChips, timeOptions, spotsOptions, visibilityOptions,
+      dateOptions, emojiChips, spotsOptions, visibilityOptions,
       postActivity
     },
 
@@ -1031,7 +1061,7 @@ export function useLoopedApp() {
     const phone = normalizeInvitePhone(q);
     setState({ friendQuery: '' });
     api.inviteFriend(phone)
-      .then(res => toast(res.invited ? 'invite sent to ' + q + ' ✉️' : (res.message || 'invite sent')))
+      .then(res => toast(res.invited ? 'invite texted to ' + q + ' ✉️' : (res.message || 'invite sent')))
       .catch(() => toast("couldn't send that invite 🙏"));
   }
   function doSearch() {

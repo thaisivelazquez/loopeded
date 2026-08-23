@@ -100,7 +100,7 @@ export async function GET(request) {
         place: e.location,
         note: e.note || "",
         hour,
-        dur: Number(e.durationHours),
+        dur: e.durationHours != null ? Number(e.durationHours) : null,
         dayOffset,
         day: dayOffset > 0 ? dayLabelFor(dayOffset) : undefined,
         spots: e.spots,
@@ -141,7 +141,20 @@ export async function POST(request) {
     const note = (body.note ?? "").trim() || null;
     const spots = Math.max(0, parseInt(body.spots, 10) || 0);
     const visibility = VALID_VISIBILITY.has(body.visibility) ? body.visibility : "everyone";
-    const dur = 1.5;
+    // endHour is optional — omit it (or send null) for an open-ended event
+    // with no set end time. When present, dur is derived from the gap
+    // between start and end; an end at/before the start is rejected rather
+    // than silently wrapping to the next day.
+    const hourNum = Number(body.hour);
+    let dur = null;
+    if (body.endHour != null) {
+      const endHourNum = Number(body.endHour);
+      if (Number.isFinite(endHourNum) && endHourNum > hourNum) {
+        dur = endHourNum - hourNum;
+      } else {
+        return withCors(NextResponse.json({ error: "end time must be after the start time" }, { status: 400 }));
+      }
+    }
     const startAt = fromBoardFields(body.dayOffset, body.hour);
     const coords = await geocodeAddress(place);
 
@@ -187,7 +200,7 @@ export async function POST(request) {
           place: e.location,
           note: e.note || "",
           hour,
-          dur: Number(e.durationHours),
+          dur: e.durationHours != null ? Number(e.durationHours) : null,
           dayOffset,
           day: dayOffset > 0 ? dayLabelFor(dayOffset) : undefined,
           spots: e.spots,
